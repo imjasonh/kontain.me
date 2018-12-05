@@ -49,7 +49,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "ko/") && strings.Contains(path, "/manifests/"):
 		serveKoManifest(w, r)
 	case strings.HasPrefix(path, "random/blobs/"),
-		strings.HasPrefix(path, "ko/blobs/"):
+		strings.HasPrefix(path, "ko/") && strings.Contains(path, "/blobs/"):
 		serveBlob(w, r)
 	default:
 		http.Error(w, "not found", http.StatusNotFound)
