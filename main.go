@@ -20,6 +20,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"google.golang.org/api/googleapi"
 )
 
 const bucket = "kontainme"
@@ -70,14 +71,28 @@ func writeBlob(h v1.Hash, rc io.ReadCloser) error {
 	if err != nil {
 		return fmt.Errorf("NewClient: %v", err)
 	}
-	w := client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", h)).If(storage.Conditions{DoesNotExist: true}).NewWriter(ctx)
+	// The DoesNotExist precondition can be hit when writing or flushing
+	// data, which can happen any of three places. Anywhere it happens,
+	// just ignore the error since that means the blob already exists.
+	w := client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", h)).
+		If(storage.Conditions{DoesNotExist: true}).
+		NewWriter(ctx)
 	if _, err := io.Copy(w, rc); err != nil {
+		if herr, ok := err.(*googleapi.Error); ok && herr.Code == http.StatusPreconditionFailed {
+			return nil
+		}
 		return fmt.Errorf("Copy: %v", err)
 	}
 	if err := rc.Close(); err != nil {
+		if herr, ok := err.(*googleapi.Error); ok && herr.Code == http.StatusPreconditionFailed {
+			return nil
+		}
 		return fmt.Errorf("rc.Close: %v", err)
 	}
 	if err := w.Close(); err != nil {
+		if herr, ok := err.(*googleapi.Error); ok && herr.Code == http.StatusPreconditionFailed {
+			return nil
+		}
 		return fmt.Errorf("w.Close: %v", err)
 	}
 	return nil
@@ -127,6 +142,7 @@ func serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("%q is not a supported reference", pkg), http.StatusBadRequest)
 		return
 	}
+	log.Printf("ko build %s...", pkg)
 	img, err := g.Build(pkg)
 	if err != nil {
 		log.Printf("ERROR (ko build): %s", err)
