@@ -20,8 +20,14 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 )
 
+const (
+	gcs    = false
+	bucket = "konta.in"
+)
+
 func main() {
 	http.HandleFunc("/", handler)
+	log.Println("Starting...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -39,11 +45,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Docker-Distribution-API-Version", "registry/2.0")
 		return
 	case strings.HasPrefix(path, "random/manifests/"):
-		log.Println("serving random manifest...")
 		serveRandomManifest(w, r)
 	case strings.HasPrefix(path, "ko/manifests/"):
 		serveKoManifest(w, r)
-	case strings.HasPrefix(path, "random/blobs/"), strings.HasPrefix(path, "ko/blobs/"):
+	case strings.HasPrefix(path, "random/blobs/"),
+		strings.HasPrefix(path, "ko/blobs/"):
 		serveBlob(w, r)
 	}
 }
@@ -54,27 +60,37 @@ func serveBlob(w http.ResponseWriter, r *http.Request) {
 	// If it doesn't exist, this will return 404.
 	parts := strings.Split(r.URL.Path, "/")
 	digest := parts[len(parts)-1]
-	http.ServeFile(w, r, "blobs/"+digest)
+	if gcs {
+		url := fmt.Sprintf("https://storage.googleapis.com/%s/blobs/%s", bucket, digest)
+		http.Redirect(w, r, url, http.StatusSeeOther)
+	} else {
+		http.ServeFile(w, r, "blobs/"+digest)
+	}
 }
 
 // TODO: write blobs to GCS.
 func writeBlob(h v1.Hash, rc io.ReadCloser) error {
-	path := "blobs/" + h.String()
-	// Check if file exists already.
-	if _, err := os.Stat(path); err == nil {
-		return nil
-	}
+	if gcs {
+		// TODO:
+	} else {
+		path := "blobs/" + h.String()
+		// Check if file exists already.
+		if _, err := os.Stat(path); err == nil {
+			log.Printf("%q already exists", h)
+			return nil
+		}
 
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err := io.Copy(f, rc); err != nil {
-		return err
-	}
-	if err := rc.Close(); err != nil {
-		return err
+		f, err := os.Create(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err := io.Copy(f, rc); err != nil {
+			return err
+		}
+		if err := rc.Close(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -90,7 +106,7 @@ func getDefaultBaseImage(string) (v1.Image, error) {
 	*/
 }
 
-// registry.lol/ko/github.com/knative/build/cmd/controller -> ko build and serve
+// konta.in/ko/github.com/knative/build/cmd/controller -> ko build and serve
 func serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/v2/ko/manifests/")
 	parts := strings.Split(path, "/")
@@ -134,14 +150,14 @@ func serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	serveManifest(w, img)
 }
 
-// Capture up to 99 layers of up to <1GB each.
-var randomTagRE = regexp.MustCompile("([0-9]{1,2})x([0-9]{1,6})")
+// Capture up to 99 layers of up to 99.9MB each.
+var randomTagRE = regexp.MustCompile("([0-9]{1,2})x([0-9]{1,8})")
 
-// registry.lol/random:3x10mb
-// registry.lol/random(:latest) -> 1x10mb
+// konta.in/random:3x10mb
+// konta.in/random(:latest) -> 1x10mb
 func serveRandomManifest(w http.ResponseWriter, r *http.Request) {
 	tag := strings.TrimPrefix(r.URL.Path, "/v2/random/manifests/")
-	var num, size int64 = 1, 100000 // 10MB
+	var num, size int64 = 1, 10000000 // 10MB
 
 	// Captured requested num + size from tag.
 	all := randomTagRE.FindStringSubmatch(tag)
