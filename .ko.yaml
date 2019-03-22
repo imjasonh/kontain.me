@@ -1,2 +1,2 @@
 baseImageOverrides:
-  github.com/ImJasonH/kontain.me: golang
+  github.com/imjasonh/kontain.me: golang
