@@ -19,13 +19,16 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 )
 
-const appJunk = "https://app-j33hbo5ywa-uc.a.run.app"
+const appJunk = "https://app-an3qnndwmq-uc.a.run.app"
 
 func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		req, err := http.NewRequest(r.Method, fmt.Sprintf("%s/%s", appJunk, r.URL.Path), nil)
+		url := fmt.Sprintf("%s%s", appJunk, r.URL.Path)
+		log.Printf("forwarding to %q", url)
+		req, err := http.NewRequest(r.Method, url, nil)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -33,14 +36,23 @@ func main() {
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
+			log.Printf("ERROR: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		for k, v := range resp.Header {
 			w.Header().Set(k, v[0])
 		}
+		log.Printf("forwarding response: %d", resp.StatusCode)
 		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
+		io.Copy(w, io.TeeReader(resp.Body, os.Stdout))
 	})
-	log.Fatal(http.ListenAndServe(":8080", nil))
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+		log.Printf("Defaulting to port %s", port)
+	}
+	log.Printf("Listening on port %s", port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
