@@ -29,11 +29,11 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/google/go-containerregistry/pkg/ko/build"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/ko/pkg/build"
 	"google.golang.org/api/googleapi"
 )
 

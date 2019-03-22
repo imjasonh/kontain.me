@@ -26,13 +26,17 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
-const appPath = "/ko-app"
+const (
+	appDir             = "/ko-app"
+	defaultAppFilename = "ko-app"
+)
 
+// GetBase takes an importpath and returns a base v1.Image.
 type GetBase func(string) (v1.Image, error)
 type builder func(string) (string, error)
 
@@ -42,6 +46,7 @@ type gobuild struct {
 	build        builder
 }
 
+// Option is a functional option for NewGo.
 type Option func(*gobuildOpener) error
 
 type gobuildOpener struct {
@@ -52,7 +57,7 @@ type gobuildOpener struct {
 
 func (gbo *gobuildOpener) Open() (Interface, error) {
 	if gbo.getBase == nil {
-		return nil, errors.New("a way of providing base images must be specified, see build.WithBaseImages.")
+		return nil, errors.New("a way of providing base images must be specified, see build.WithBaseImages")
 	}
 	return &gobuild{
 		getBase:      gbo.getBase,
@@ -106,6 +111,7 @@ func build(ip string) (string, error) {
 	cmd.Stderr = &output
 	cmd.Stdout = &output
 
+	log.Printf("Building %s", ip)
 	if err := cmd.Run(); err != nil {
 		os.RemoveAll(tmpDir)
 		log.Printf("Unexpected error running \"go build\": %v\n%v", err, output.String())
@@ -114,10 +120,52 @@ func build(ip string) (string, error) {
 	return file, nil
 }
 
-func tarBinary(binary string) (*bytes.Buffer, error) {
+func appFilename(importpath string) string {
+	base := filepath.Base(importpath)
+
+	// If we fail to determine a good name from the importpath then use a
+	// safe default.
+	if base == "." || base == string(filepath.Separator) {
+		return defaultAppFilename
+	}
+
+	return base
+}
+
+func tarAddDirectories(tw *tar.Writer, dir string) error {
+	if dir == "." || dir == string(filepath.Separator) {
+		return nil
+	}
+
+	// Write parent directories first
+	if err := tarAddDirectories(tw, filepath.Dir(dir)); err != nil {
+		return err
+	}
+
+	// write the directory header to the tarball archive
+	if err := tw.WriteHeader(&tar.Header{
+		Name:     dir,
+		Typeflag: tar.TypeDir,
+		// Use a fixed Mode, so that this isn't sensitive to the directory and umask
+		// under which it was created. Additionally, windows can only set 0222,
+		// 0444, or 0666, none of which are executable.
+		Mode: 0555,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func tarBinary(name, binary string) (*bytes.Buffer, error) {
 	buf := bytes.NewBuffer(nil)
 	tw := tar.NewWriter(buf)
 	defer tw.Close()
+
+	// write the parent directories to the tarball archive
+	if err := tarAddDirectories(tw, filepath.Dir(name)); err != nil {
+		return nil, err
+	}
 
 	file, err := os.Open(binary)
 	if err != nil {
@@ -129,7 +177,7 @@ func tarBinary(binary string) (*bytes.Buffer, error) {
 		return nil, err
 	}
 	header := &tar.Header{
-		Name:     appPath,
+		Name:     name,
 		Size:     stat.Size(),
 		Typeflag: tar.TypeReg,
 		// Use a fixed Mode, so that this isn't sensitive to the directory and umask
@@ -246,8 +294,10 @@ func (gb *gobuild) Build(s string) (v1.Image, error) {
 	}
 	layers = append(layers, dataLayer)
 
+	appPath := filepath.Join(appDir, appFilename(s))
+
 	// Construct a tarball with the binary and produce a layer.
-	binaryLayerBuf, err := tarBinary(file)
+	binaryLayerBuf, err := tarBinary(appPath, file)
 	if err != nil {
 		return nil, err
 	}

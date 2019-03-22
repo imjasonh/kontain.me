@@ -11,14 +11,14 @@ bytes each.
 
 `docker pull kontain.me/ko/[import path]` serves an image containing a Go
 binary fetched using `go get` and built into a container image using
-[`ko`](https://github.com/google/go-containerregistry/blob/master/cmd/ko/README.md).
-For example, `docker pull
-kontain.me/ko/github.com/google/go-containerregistry/cmd/ko` will fetch, build
-and (eventually) serve a Docker image containing `ko` itself. _Koception!_
+[`ko`](https://github.com/google/ko/).  For example, `docker pull
+kontain.me/ko/github.com/google/ko/cmd/ko` will fetch, build and (eventually)
+serve a Docker image containing `ko` itself. _Koception!_
 
 The registry does not accept pushes and does not handle requests for images by
 digest. This is a silly hack and probably isn't stable. Don't rely on it for
-anything serious.
+anything serious. It could probably do a lot of smart things to be a lot
+faster.
 
 ## How it works
 

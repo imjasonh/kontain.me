@@ -34,11 +34,10 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:68307cc2c794b04c44d6487d01755169f981f4f7b1b7994dafa299c94fcb2523"
+  digest = "1:4d735a4f0b7f0e98c6b60939bae9553ba801e40d324d3e8b70c95d05656b5cb1"
   name = "github.com/google/go-containerregistry"
   packages = [
     "pkg/authn",
-    "pkg/ko/build",
     "pkg/name",
     "pkg/v1",
     "pkg/v1/empty",
@@ -54,6 +53,14 @@
   ]
   pruneopts = "UT"
   revision = "68537023cae86a3267a37354535baa614ad29924"
+
+[[projects]]
+  digest = "1:dc103a2b0c588c87eaae0ba653b36c6bf79f0cd2d5914fa6d9e0fa2d7ee4219f"
+  name = "github.com/google/ko"
+  packages = ["pkg/build"]
+  pruneopts = "UT"
+  revision = "021e392d3a3d2c318c79f34c4dd15da2402afce9"
+  version = "v0.1"
 
 [[projects]]
   digest = "1:e04cc716992a302cacf6d726409a05aa9546241998b24356d6dd0f01bc5a374e"
@@ -252,11 +259,12 @@
   analyzer-version = 1
   input-imports = [
     "cloud.google.com/go/storage",
-    "github.com/google/go-containerregistry/pkg/ko/build",
     "github.com/google/go-containerregistry/pkg/name",
     "github.com/google/go-containerregistry/pkg/v1",
     "github.com/google/go-containerregistry/pkg/v1/random",
     "github.com/google/go-containerregistry/pkg/v1/remote",
+    "github.com/google/ko/pkg/build",
+    "google.golang.org/api/googleapi",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
