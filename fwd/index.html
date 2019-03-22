@@ -21,14 +21,14 @@ bytes.  You can request a specific size and shape of random image. For example,
 <p><code>docker pull kontain.me/ko/[import path]</code> serves an image
 containing a Go binary fetched using <code>go get</code> and built into a
 container image using <a
-href="https://github.com/google/go-containerregistry/blob/master/cmd/ko/README.md"><code>ko</code></a>.
-For example, <code>docker pull
-kontain.me/ko/github.com/google/go-containerregistry/cmd/ko</code> will fetch,
+href="https://github.com/google/ko"><code>ko</code></a>. For example,
+<code>docker pull kontain.me/ko/github.com/google/ko/cmd/ko</code> will fetch,
 build and (eventually) serve a Docker image containing <code>ko</code> itself.
 <i>Koception!</i></p>
 
 <p>The registry does not accept pushes and does not handle requests for images
 by digest. This is a silly hack and probably isn't stable. Don't rely on it for
-anything serious.</p>
+anything serious. It could probably do a lot of smart things to be a lot
+faster.</p>
 </body>
 </html>
