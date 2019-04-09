@@ -22,9 +22,9 @@ faster.
 
 ## How it works
 
-The backend is implemented using [Google Serverless
-Containers](https://g.co/serverlesscontainers), with an App Engine Go 1.11
-frontend to provide SSL on a custom domain (source in [`fwd/`](./fwd/)).
+The backend is implemented using [Google Cloud
+Run](https://cloud.google.com/run), with an App Engine Go frontend to provide
+SSL on a custom domain (source in [`fwd/`](./fwd/)).
 
 When the app receives a request for an image manifest, it parses the request
 and generates layers for the requested image, writing the blobs to [Google
