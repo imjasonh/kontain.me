@@ -22,12 +22,13 @@ faster.
 
 ## How it works
 
-The backend is implemented using [Google Cloud
-Run](https://cloud.google.com/run), with an App Engine Go frontend to provide
-SSL on a custom domain (source in [`fwd/`](./fwd/)).
+The service is implemented using [Google Cloud
+Run](https://cloud.google.com/run), with a [custom domain
+mapping](https://cloud.google.com/run/docs/mapping-custom-domains) to
+https://kontain.me which provides a managed SSL certificate.
 
-When the app receives a request for an image manifest, it parses the request
-and generates layers for the requested image, writing the blobs to [Google
-Cloud Storage](https://cloud.google.com/storage/). After it receives the
-manifest, `docker pull` fetches the blobs. The app simply redirects to Cloud
-Storage to serve the blobs. Blobs are deleted after 10 days.
+When the service receives a request for an image manifest, it parses the request
+and generates layers for the requested image, writing the blobs to [Google Cloud
+Storage](https://cloud.google.com/storage/). After it receives the manifest,
+`docker pull` fetches the blobs. The app simply redirects to Cloud Storage to
+serve the blobs. Blobs are deleted after 10 days.

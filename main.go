@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"regexp"
 	"strconv"
@@ -30,7 +31,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/ko/pkg/build"
@@ -40,17 +41,21 @@ import (
 const bucket = "kontainme"
 
 func main() {
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/v2/", handler)
+	http.Handle("/", http.FileServer(http.Dir("/var/run/ko")))
+
 	log.Println("Starting...")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+		log.Printf("Defaulting to port %s", port)
+	}
+	log.Printf("Listening on port %s", port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Method, r.URL)
-	if !strings.HasPrefix(r.URL.String(), "/v2/") {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
+	log.Println("handler:", r.Method, r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
