@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/stream"
@@ -78,31 +78,22 @@ func Config(base v1.Image, cfg v1.Config) (v1.Image, error) {
 
 	cf.Config = cfg
 
-	return configFile(base, cf)
+	return ConfigFile(base, cf)
 }
 
-func configFile(base v1.Image, cfg *v1.ConfigFile) (v1.Image, error) {
+// ConfigFile mutates the provided v1.Image to have the provided v1.ConfigFile
+func ConfigFile(base v1.Image, cfg *v1.ConfigFile) (v1.Image, error) {
 	m, err := base.Manifest()
 	if err != nil {
 		return nil, err
 	}
 
 	image := &image{
-		base:     base,
-		manifest: m.DeepCopy(),
+		base:       base,
+		manifest:   m.DeepCopy(),
+		configFile: cfg,
 	}
 
-	rcfg, err := image.RawConfigFile()
-	if err != nil {
-		return nil, err
-	}
-	d, sz, err := v1.SHA256(bytes.NewBuffer(rcfg))
-	if err != nil {
-		return nil, err
-	}
-	image.manifest.Config.Digest = d
-	image.manifest.Config.Size = sz
-	image.configFile = cfg
 	return image, nil
 }
 
@@ -116,7 +107,7 @@ func CreatedAt(base v1.Image, created v1.Time) (v1.Image, error) {
 	cfg := cf.DeepCopy()
 	cfg.Created = created
 
-	return configFile(base, cfg)
+	return ConfigFile(base, cfg)
 }
 
 type image struct {
@@ -139,11 +130,16 @@ func (i *image) compute() error {
 	if i.computed {
 		return nil
 	}
-	cf, err := i.base.ConfigFile()
-	if err != nil {
-		return err
+	var configFile *v1.ConfigFile
+	if i.configFile != nil {
+		configFile = i.configFile
+	} else {
+		cf, err := i.base.ConfigFile()
+		if err != nil {
+			return err
+		}
+		configFile = cf.DeepCopy()
 	}
-	configFile := cf.DeepCopy()
 	diffIDs := configFile.RootFS.DiffIDs
 	history := configFile.History
 
@@ -240,14 +236,6 @@ func (i *image) Layers() ([]v1.Layer, error) {
 		ls = append(ls, l)
 	}
 	return ls, nil
-}
-
-// BlobSet returns an unordered collection of all the blobs in the image.
-func (i *image) BlobSet() (map[v1.Hash]struct{}, error) {
-	if err := i.compute(); err != nil {
-		return nil, err
-	}
-	return partial.BlobSet(i)
 }
 
 // ConfigName returns the hash of the image's config file.
@@ -489,7 +477,7 @@ func Time(img v1.Image, t time.Time) (v1.Image, error) {
 		h.Created = v1.Time{Time: t}
 	}
 
-	return configFile(newImage, cfg)
+	return ConfigFile(newImage, cfg)
 }
 
 func layerTime(layer v1.Layer, t time.Time) (v1.Layer, error) {
@@ -521,6 +509,10 @@ func layerTime(layer v1.Layer, t time.Time) (v1.Layer, error) {
 				return nil, fmt.Errorf("Error writing layer file: %v", err)
 			}
 		}
+	}
+
+	if err := tarWriter.Close(); err != nil {
+		return nil, err
 	}
 
 	b := w.Bytes()
@@ -564,5 +556,5 @@ func Canonical(img v1.Image) (v1.Image, error) {
 	cfg.ContainerConfig.Hostname = ""
 	cfg.DockerVersion = ""
 
-	return configFile(img, cfg)
+	return ConfigFile(img, cfg)
 }
