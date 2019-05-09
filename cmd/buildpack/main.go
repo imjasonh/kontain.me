@@ -31,10 +31,7 @@ func init() {
 	projectID = p
 }
 
-const (
-	source = "https://github.com/buildpack/sample-java-app/archive/master.tar.gz"
-	base   = "packs/run:v3alpha2"
-)
+const base = "packs/run:v3alpha2"
 
 func main() {
 	ctx := context.Background()
@@ -71,9 +68,9 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "": // API Version check.
 		w.Header().Set("Docker-Distribution-API-Version", "registry/2.0")
-	case strings.HasPrefix(path, "buildpack/") && strings.Contains(path, "/manifests/"):
+	case strings.Contains(path, "/manifests/"):
 		s.serveBuildpackManifest(w, r)
-	case strings.HasPrefix(path, "buildpack/blobs/") && strings.Contains(path, "/blobs/"):
+	case strings.Contains(path, "/blobs/"):
 		pkg.ServeBlob(w, r)
 	default:
 		http.Error(w, "not found", http.StatusNotFound)
@@ -100,8 +97,20 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 		os.Setenv("HOME", "/home/")
 	}()
 
+	// Determine source repo and revision.
+	path := strings.TrimPrefix(r.URL.Path, "/v2/ko/")
+	parts := strings.Split(path, "/")
+	repo := strings.Join(parts[2:len(parts)-2], "/")
+	if repo == "" || repo == "buildpack" {
+		repo = "buildpack/sample-java-app"
+	}
+	revision := parts[len(parts)-1]
+	if revision == "latest" {
+		revision = "master"
+	}
+
 	// Fetch, detect and build source.
-	image, err := s.fetchAndBuild(src, layers)
+	image, err := s.fetchAndBuild(src, layers, repo, revision)
 	if err != nil {
 		s.error.Println("ERROR:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -158,8 +167,9 @@ func (s *server) prepareWorkspace() (string, string, error) {
 	return src, layers, nil
 }
 
-func (s *server) fetchAndBuild(src, layers string) (string, error) {
+func (s *server) fetchAndBuild(src, layers, repo, revision string) (string, error) {
 	image := fmt.Sprintf("gcr.io/%s/built-%d", projectID, time.Now().Unix)
+	source := fmt.Sprintf("https://github.com/%s/archive/%s.tar.gz", repo, revision)
 
 	for _, cmd := range []string{
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
