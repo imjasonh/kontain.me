@@ -1,4 +1,4 @@
-package pkg
+package serve
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os/exec"
 	"strings"
 
 	"cloud.google.com/go/storage"
@@ -18,14 +17,7 @@ import (
 
 const bucket = "kontainme"
 
-func Run(stdout io.Writer, command string) error {
-	cmd := exec.Command("/bin/sh", "-c", command)
-	cmd.Stdout = stdout
-	cmd.Stderr = stdout
-	return cmd.Run()
-}
-
-func ServeBlob(w http.ResponseWriter, r *http.Request) {
+func Blob(w http.ResponseWriter, r *http.Request) {
 	// Extract requested blob digest and redirect to serve it from GCS.
 	// If it doesn't exist, this will return 404.
 	parts := strings.Split(r.URL.Path, "/")
@@ -69,7 +61,7 @@ func writeBlob(h v1.Hash, rc io.ReadCloser) error {
 
 // ServeManifest writes config and layer blobs for the image, then serves the
 // manifest contents pointing to those blobs.
-func ServeManifest(w http.ResponseWriter, img v1.Image) {
+func Manifest(w http.ResponseWriter, img v1.Image) {
 	// Write config blob for later serving.
 	ch, err := img.ConfigName()
 	if err != nil {

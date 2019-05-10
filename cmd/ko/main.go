@@ -32,7 +32,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/ko/pkg/build"
-	"github.com/imjasonh/kontain.me/pkg"
+	"github.com/imjasonh/kontain.me/pkg/run"
+	"github.com/imjasonh/kontain.me/pkg/serve"
 )
 
 func main() {
@@ -82,9 +83,9 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveKoManifest(w, r)
 	case strings.HasPrefix(path, "random/blobs/"),
 		strings.HasPrefix(path, "ko/") && strings.Contains(path, "/blobs/"):
-		pkg.ServeBlob(w, r)
+		serve.Blob(w, r)
 	default:
-		http.Error(w, "not found", http.StatusNotFound)
+		serve.Error(w, serve.ErrNotFound)
 	}
 }
 
@@ -108,9 +109,9 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 
 	// go get the package.
 	s.info.Printf("go get %s...", ip)
-	if err := pkg.Run(s.info.Writer(), fmt.Sprintf("go get %s", ip)); err != nil {
+	if err := run.Do(s.info.Writer(), fmt.Sprintf("go get %s", ip)); err != nil {
 		s.error.Printf("ERROR (go get): %s", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		serve.Error(w, err)
 		return
 	}
 	// TODO: Check image tag for version, resolve branches -> commits and redirect to img:<commit>
@@ -124,22 +125,22 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		s.error.Printf("ERROR (build.NewGo): %s", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		serve.Error(w, serve.ErrInvalid)
 		return
 	}
 	if !g.IsSupportedReference(ip) {
 		s.error.Printf("ERROR (IsSupportedReference): %s", err)
-		http.Error(w, fmt.Sprintf("%q is not a supported reference", ip), http.StatusBadRequest)
+		serve.Error(w, serve.ErrInvalid)
 		return
 	}
 	s.info.Printf("ko build %s...", ip)
 	img, err := g.Build(ip)
 	if err != nil {
 		s.error.Printf("ERROR (ko build): %s", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		serve.Error(w, serve.ErrInvalid)
 		return
 	}
-	pkg.ServeManifest(w, img)
+	serve.Manifest(w, img)
 }
 
 // Capture up to 99 layers of up to 99.9MB each.
@@ -163,8 +164,8 @@ func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
 	img, err := random.Image(size, num)
 	if err != nil {
 		s.error.Printf("ERROR (random.Image): %s", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		serve.Error(w, err)
 		return
 	}
-	pkg.ServeManifest(w, img)
+	serve.Manifest(w, img)
 }

@@ -17,7 +17,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/imjasonh/kontain.me/pkg"
+	"github.com/imjasonh/kontain.me/pkg/run"
+	"github.com/imjasonh/kontain.me/pkg/serve"
 	"golang.org/x/oauth2/google"
 )
 
@@ -71,9 +72,9 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(path, "/manifests/"):
 		s.serveBuildpackManifest(w, r)
 	case strings.Contains(path, "/blobs/"):
-		pkg.ServeBlob(w, r)
+		serve.Blob(w, r)
 	default:
-		http.Error(w, "not found", http.StatusNotFound)
+		serve.Error(w, serve.ErrNotFound)
 	}
 }
 
@@ -82,7 +83,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	src, layers, err := s.prepareWorkspace()
 	if err != nil {
 		s.error.Println("ERROR:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		serve.Error(w, err)
 		return
 	}
 	// Clean up workspace.
@@ -113,7 +114,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	image, err := s.fetchAndBuild(src, layers, repo, revision)
 	if err != nil {
 		s.error.Println("ERROR:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		serve.Error(w, err)
 		return
 	}
 
@@ -121,10 +122,10 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	img, err := s.getImage(image)
 	if err != nil {
 		s.error.Println("ERROR:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		serve.Error(w, err)
 		return
 	}
-	pkg.ServeManifest(w, img)
+	serve.Manifest(w, img)
 }
 
 func (s *server) prepareWorkspace() (string, string, error) {
@@ -141,7 +142,7 @@ func (s *server) prepareWorkspace() (string, string, error) {
 		}
 	}
 }`, auth)
-	if err := pkg.Run(s.info.Writer(), "mkdir -p ~/.docker/ && cat << EOF > ~/.docker/config.json\n"+string(configJSON)+"\nEOF"); err != nil {
+	if err := run.Do(s.info.Writer(), "mkdir -p ~/.docker/ && cat << EOF > ~/.docker/config.json\n"+string(configJSON)+"\nEOF"); err != nil {
 		return "", "", err
 	}
 
@@ -171,6 +172,14 @@ func (s *server) fetchAndBuild(src, layers, repo, revision string) (string, erro
 	image := fmt.Sprintf("gcr.io/%s/built-%d", projectID, time.Now().Unix)
 	source := fmt.Sprintf("https://github.com/%s/archive/%s.tar.gz", repo, revision)
 
+	if resp, err := http.Head(source); err != nil {
+		return "", err
+	} else if resp.StatusCode == http.StatusNotFound {
+		return "", serve.ErrNotFound
+	} else if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HEAD %s (%d): %s", source, resp.StatusCode, resp.Status)
+	}
+
 	for _, cmd := range []string{
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), layers),
@@ -181,7 +190,7 @@ func (s *server) fetchAndBuild(src, layers, repo, revision string) (string, erro
 		fmt.Sprintf("/lifecycle/builder -layers=%s -app=%s -group=%s/group.toml -plan=%s/plan.toml", layers, src, layers, layers),
 		fmt.Sprintf("/lifecycle/exporter -layers=%s -helpers=true -app=%s -image=%s -group=%s/group.toml %s", layers, src, base, layers, image),
 	} {
-		if err := pkg.Run(s.info.Writer(), cmd); err != nil {
+		if err := run.Do(s.info.Writer(), cmd); err != nil {
 			return "", fmt.Errorf("Running %q: %v", cmd, err)
 		}
 	}
