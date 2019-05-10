@@ -9,14 +9,14 @@ You can request a specific size and shape of random image. For example,
 `kontain.me/random:4x100` generates a random image of 4 layers of 100 random
 bytes each.
 
-# `kontain.me`
+# `ko.kontain.me`
 
-`docker pull kontain.me/ko/[import path]` serves an image
+`docker pull ko.kontain.me/ko/[import path]` serves an image
 containing a Go binary fetched using `go get` and built into a
 container image using [ko](https://github.com/google/ko).
 
-For example, `docker pull kontain.me/ko/github.com/google/ko/cmd/ko` will fetch,
-build and (eventually) serve a Docker image containing `ko` itself.
+For example, `docker pull ko.kontain.me/ko/github.com/google/ko/cmd/ko` will
+fetch, build and (eventually) serve a Docker image containing `ko` itself.
 _Koception!_
 
 # `cnb.kontain.me`

@@ -2,9 +2,11 @@
 
 set -euxo pipefail
 
-docker pull random.kontain.me/random
-docker pull random.kontain.me/random:8x80
+curl https://kontain.me | grep html
 
-docker pull kontain.me/ko/github.com/knative/build/cmd/controller
+time docker pull random.kontain.me/random
+time docker pull random.kontain.me/random:8x80
 
-docker pull cnb.kontain.me/buildpack/sample-java-app
+time docker pull ko.kontain.me/ko/github.com/knative/build/cmd/controller
+
+time docker pull cnb.kontain.me/buildpack/sample-java-app
