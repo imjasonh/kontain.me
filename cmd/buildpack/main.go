@@ -46,7 +46,6 @@ func main() {
 		info:  lg.StandardLogger(logging.Info),
 		error: lg.StandardLogger(logging.Error),
 	})
-	http.Handle("/", http.FileServer(http.Dir("/var/run/ko")))
 
 	log.Println("Starting...")
 	port := os.Getenv("PORT")

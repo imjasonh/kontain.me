@@ -20,8 +20,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -29,7 +27,6 @@ import (
 	"cloud.google.com/go/logging"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/ko/pkg/build"
 	"github.com/imjasonh/kontain.me/pkg/run"
@@ -77,12 +74,9 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// API Version check.
 		w.Header().Set("Docker-Distribution-API-Version", "registry/2.0")
 		return
-	case strings.HasPrefix(path, "random/manifests/"):
-		s.serveRandomManifest(w, r)
 	case strings.HasPrefix(path, "ko/") && strings.Contains(path, "/manifests/"):
 		s.serveKoManifest(w, r)
-	case strings.HasPrefix(path, "random/blobs/"),
-		strings.HasPrefix(path, "ko/") && strings.Contains(path, "/blobs/"):
+	case strings.HasPrefix(path, "ko/") && strings.Contains(path, "/blobs/"):
 		serve.Blob(w, r)
 	default:
 		serve.Error(w, serve.ErrNotFound)
@@ -138,33 +132,6 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.error.Printf("ERROR (ko build): %s", err)
 		serve.Error(w, serve.ErrInvalid)
-		return
-	}
-	serve.Manifest(w, img)
-}
-
-// Capture up to 99 layers of up to 99.9MB each.
-var randomTagRE = regexp.MustCompile("([0-9]{1,2})x([0-9]{1,8})")
-
-// konta.in/random:3x10mb
-// konta.in/random(:latest) -> 1x10mb
-func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
-	tag := strings.TrimPrefix(r.URL.Path, "/v2/random/manifests/")
-	var num, size int64 = 1, 10000000 // 10MB
-
-	// Captured requested num + size from tag.
-	all := randomTagRE.FindStringSubmatch(tag)
-	if len(all) >= 3 {
-		num, _ = strconv.ParseInt(all[1], 10, 64)
-		size, _ = strconv.ParseInt(all[2], 10, 64)
-	}
-	s.info.Printf("generating random image with %d layers of %d bytes", num, size)
-
-	// Generate a random image.
-	img, err := random.Image(size, num)
-	if err != nil {
-		s.error.Printf("ERROR (random.Image): %s", err)
-		serve.Error(w, err)
 		return
 	}
 	serve.Manifest(w, img)

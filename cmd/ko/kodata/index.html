@@ -12,19 +12,38 @@ a { color: blue; }
 <p><b>kontain.me</b> serves Docker container images generated on-demand at the
 time they are requested.</p>
 
-<p><code>docker pull kontain.me/random:latest</code> serves an image containing
+<h1><code>random.kontain.me</code></h1>
+
+<p><code>docker pull random.kontain.me/random:latest</code> serves an image containing
 random data. By default the image contains one layer containing 10 MB of random
 bytes.  You can request a specific size and shape of random image. For example,
 <code>kontain.me/random:4x100</code> generates a random image of 4 layers of
 100 random bytes each.
 
+<h1><code>kontain.me</code></h1>
+
 <p><code>docker pull kontain.me/ko/[import path]</code> serves an image
 containing a Go binary fetched using <code>go get</code> and built into a
 container image using <a
-href="https://github.com/google/ko"><code>ko</code></a>. For example,
+	href="https://github.com/google/ko"><code>ko</code></a>.</p>
+
+<p>For example,
 <code>docker pull kontain.me/ko/github.com/google/ko/cmd/ko</code> will fetch,
 build and (eventually) serve a Docker image containing <code>ko</code> itself.
 <i>Koception!</i></p>
+
+<h1><code>cnb.kontain.me</code></h1>
+
+<p><code>docker pull cnb.kontain.me/[ghuser]/[ghrepo]:[revision]</code> serves
+an image fetched from source on GitHub and built using <a
+href="https://buildpacks.io">CNCF Buildpacks</a>.</p>
+
+<p>For example, <code>docker pull
+	cnb.kontain.me/buildpack/sample-java-app:b032838</code> fetches, builds
+and serves a <a href="https://github.com/buildpack/sample-java-app">sample Java
+	app</a>.</p>
+
+<h1>Caveats</h1>
 
 <p>The registry does not accept pushes and does not handle requests for images
 by digest. This is a silly hack and probably isn't stable. Don't rely on it for
