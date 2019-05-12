@@ -19,13 +19,15 @@ For example, `docker pull ko.kontain.me/ko/github.com/google/ko/cmd/ko` will
 fetch, build and (eventually) serve a Docker image containing `ko` itself.
 _Koception!_
 
-# `cnb.kontain.me`
+# `buildpack.kontain.me`
 
-`docker pull cnb.kontain.me/[ghuser]/[ghrepo]:[revision]` serves
-an image fetched from source on GitHub and built using [CNCF Buildpacks](https://buildpacks.io)
+`docker pull buildpack.kontain.me/[ghuser]/[ghrepo]:[revision]` serves an image
+fetched from source on GitHub and built using [CNCF
+Buildpacks](https://buildpacks.io)
 
-For example, `docker pull cnb.kontain.me/buildpack/sample-java-app:b032838` fetches, builds
-and serves a [sample Java app](https://github.com/buildpack/sample-java-app).
+For example, `docker pull
+buildpack.kontain.me/buildpack/sample-java-app:b032838` fetches, builds and
+serves a [sample Java app](https://github.com/buildpack/sample-java-app).
 
 # Caveats
 
