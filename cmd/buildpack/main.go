@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -12,11 +15,13 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
+	"cloud.google.com/go/datastore"
 	"cloud.google.com/go/logging"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 	"golang.org/x/oauth2/google"
@@ -42,9 +47,15 @@ func main() {
 	}
 	lg := client.Logger("server")
 
+	dsClient, err := datastore.NewClient(ctx, projectID)
+	if err != nil {
+		log.Fatalf("datastore.NewClient: %v", err)
+	}
+
 	http.Handle("/v2/", &server{
-		info:  lg.StandardLogger(logging.Info),
-		error: lg.StandardLogger(logging.Error),
+		info:      lg.StandardLogger(logging.Info),
+		error:     lg.StandardLogger(logging.Error),
+		datastore: dsClient,
 	})
 
 	log.Println("Starting...")
@@ -59,6 +70,7 @@ func main() {
 
 type server struct {
 	info, error *log.Logger
+	datastore   *datastore.Client
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -108,6 +120,21 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	if revision == "latest" {
 		revision = "master"
 	}
+	// Resolve branch/tag/whatever -> SHA
+	revision, err = s.resolveCommit(repo, revision)
+	if err != nil {
+		s.error.Println("ERROR(resolveCommit):", err)
+		serve.Error(w, err)
+		return
+	}
+
+	// Check whether we have a cached manfiest for this revision.
+	// If we do, just serve it.
+	if b := s.checkCachedManifest(revision); len(b) != 0 {
+		w.Header().Set("Content-Type", string(types.DockerManifestSchema2)) // TODO: don't hard-code
+		io.Copy(w, bytes.NewReader(b))
+		return
+	}
 
 	// Fetch, detect and build source.
 	image, err := s.fetchAndBuild(src, layers, repo, revision)
@@ -124,7 +151,63 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 		serve.Error(w, err)
 		return
 	}
+
+	// Cache the generated manifest.
+	if b, _ := img.RawManifest(); len(b) != 0 {
+		s.putCachedManifest(revision, b)
+	}
+
+	// Serve the manifest.
 	serve.Manifest(w, img)
+}
+
+type cachedManifest struct {
+	Manifest []byte `datastore:",noindex"`
+}
+
+func (s *server) checkCachedManifest(revision string) []byte {
+	k := datastore.NameKey("Manifests", revision, nil)
+	var e cachedManifest
+	ctx := context.Background() // TODO
+	if err := s.datastore.Get(ctx, k, &e); err == datastore.ErrNoSuchEntity {
+		s.info.Printf("No cached manifest digest for %q", revision)
+	} else if err != nil {
+		s.error.Printf("datastore.Get: %v", err)
+	}
+	return e.Manifest
+}
+
+func (s *server) putCachedManifest(revision string, manifest []byte) {
+	k := datastore.NameKey("Manifests", revision, nil)
+	e := cachedManifest{manifest}
+	ctx := context.Background() // TODO
+	if _, err := s.datastore.Put(ctx, k, &e); err != nil {
+		s.error.Printf("datastore.Put: %v", err)
+	}
+}
+
+// Resolves a ref (branch, tag, PR, commit) into its SHA.
+// https://developer.github.com/v3/repos/commits/#get-the-sha-1-of-a-commit-reference
+func (s *server) resolveCommit(repo, ref string) (string, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/commits/%s", repo, ref)
+	resp, err := http.Get(url) // TODO: cache this lookup?
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return "", serve.ErrNotFound
+	} else if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("Error resolving %q (%d): %v", url, resp.StatusCode, resp.Status)
+	}
+	defer resp.Body.Close()
+	var r struct {
+		SHA string `json:"sha"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		return "", err
+	}
+	s.info.Printf("Resolved %q -> %q\n", ref, r.SHA)
+	return r.SHA, nil
 }
 
 func (s *server) prepareWorkspace() (string, string, error) {

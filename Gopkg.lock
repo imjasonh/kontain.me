@@ -2,12 +2,14 @@
 
 
 [[projects]]
-  digest = "1:f0f96805f0c22d8fcb1114a2359c8ba250997772916a5b4e3ba98857b1356fb4"
+  digest = "1:7d4ae02f02b59fc967428e108406234c1ae9bb901aa163bb99d4c4b3e2a3c561"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
+    "datastore",
     "iam",
     "internal",
+    "internal/fields",
     "internal/optional",
     "internal/trace",
     "internal/version",
@@ -21,7 +23,7 @@
   version = "v0.38.0"
 
 [[projects]]
-  digest = "1:1882d3bab192c14c94b61781ff6d3965362f98527f895987793908304e90c118"
+  digest = "1:1d3ad0f6a57c08e2168089a64c34313930571fcbe5359d71c608a97ce504f7ca"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -32,6 +34,7 @@
     "ptypes/empty",
     "ptypes/struct",
     "ptypes/timestamp",
+    "ptypes/wrappers",
   ]
   pruneopts = "UT"
   revision = "b5d812f8a3706043e23a9cd5babf2e5423744d30"
@@ -229,7 +232,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:9b3077a28e959d99788fefe3e1abb8ba9dd897b955227bdfb58b1a389ffc0660"
+  digest = "1:f24be77fdd5624b07d22093335e50834602f49eca8b7247847ff4f2b7e411726"
   name = "google.golang.org/genproto"
   packages = [
     "googleapis/api",
@@ -238,11 +241,13 @@
     "googleapis/api/label",
     "googleapis/api/metric",
     "googleapis/api/monitoredres",
+    "googleapis/datastore/v1",
     "googleapis/iam/v1",
     "googleapis/logging/type",
     "googleapis/logging/v2",
     "googleapis/rpc/code",
     "googleapis/rpc/status",
+    "googleapis/type/latlng",
     "protobuf/field_mask",
   ]
   pruneopts = "UT"
@@ -295,6 +300,7 @@
   analyzer-version = 1
   input-imports = [
     "cloud.google.com/go/compute/metadata",
+    "cloud.google.com/go/datastore",
     "cloud.google.com/go/logging",
     "cloud.google.com/go/storage",
     "github.com/google/go-containerregistry/pkg/authn",
@@ -302,6 +308,7 @@
     "github.com/google/go-containerregistry/pkg/v1",
     "github.com/google/go-containerregistry/pkg/v1/random",
     "github.com/google/go-containerregistry/pkg/v1/remote",
+    "github.com/google/go-containerregistry/pkg/v1/types",
     "github.com/google/ko/pkg/build",
     "golang.org/x/oauth2/google",
     "google.golang.org/api/googleapi",
