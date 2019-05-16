@@ -64,7 +64,7 @@ status: SUCCESS
 statusDetail: ''
 ```
 
-## Known differences / NYEs
+## Known differences
 
 -  Builds are performed entirely in the context of the `projects.builds.create`
    request, not by polling a long-running operation.  The `--async` flag has no
