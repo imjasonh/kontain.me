@@ -1,12 +1,26 @@
-First, be in a local directory containing buildpack-detectable source:
+## What is this?
+
+An experimental GCB API-compatible buildpack service running on Cloud Run. A GCB
+user can use any recently released `gcloud` along with this service to upload
+and build buildpack-compatible source and produce a container image.
+
+Any requested `steps` are ignored and a buildpack build is executed on the
+source instead. The request must specify exactly one image to build in `images`,
+and must specify a `storageSource`.
+
+This is **an experiment** and should absolutely not be used for anything serious.
+
+## How do I use it?
+
+First, get into a local directory containing buildpack-detectable source:
 
 ```
 $ git clone git@github.com:buildpack/sample-java-app.git
 $ cd sample-java-app
 ```
 
-Then, by overriding the address where API requests are sent, you can create
-Build requests that execute buildpacks builds:
+Then, by using `gcloud` and overriding the address where API requests are sent,
+you can create Build requests that execute buildpacks builds:
 
 ```
 $ CLOUDSDK_API_ENDPOINT_OVERRIDES_CLOUDBUILD=https://api-an3qnndwmq-uc.a.run.app/ gcloud builds submit --tag=gcr.io/my-project/built
@@ -53,14 +67,16 @@ statusDetail: ''
 
 - [ ] Builds are performed entirely in the context of the
   `projects.builds.create` request, not by polling a long-running operation.
+  The `--async` flag has no effect.
 - [ ] Build operations (source pulls and image pushes) are authorized using the
   end-user credentials, not the project's builder service account.
 - [ ] Build logs are not yet written to Cloud Storage, so they're not available
   via `gcloud`.
-- [ ] Timing is not collected or reported.
+- [ ] `timing` is not collected or reported.
 - [ ] `timeout` is not configurable. If Cloud Run request times out, client
   gets a 502.
-- [ ] `sourceProvenance` is not yet collected or reported.
+- [ ] `sourceProvenance` is not yet collected or reported, or uploaded to a
+  Grafeas instance.
 - [ ] `projects.builds.list` is not yet implemented.
 - [ ] `operations.get` and `operations.list` are not yet implemented.
 - [ ] `projects.builds.cancel` is not implementable (the client doesn't get the
