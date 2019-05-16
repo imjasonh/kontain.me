@@ -2,7 +2,7 @@
 
 
 [[projects]]
-  digest = "1:7d4ae02f02b59fc967428e108406234c1ae9bb901aa163bb99d4c4b3e2a3c561"
+  digest = "1:a325ce61868a1a85c2d8ce43bf4d00734d6419ae85853338c2b5951c11bcc594"
   name = "cloud.google.com/go"
   packages = [
     "compute/metadata",
@@ -13,9 +13,6 @@
     "internal/optional",
     "internal/trace",
     "internal/version",
-    "logging",
-    "logging/apiv2",
-    "logging/internal",
     "storage",
   ]
   pruneopts = "UT"
@@ -23,7 +20,7 @@
   version = "v0.38.0"
 
 [[projects]]
-  digest = "1:1d3ad0f6a57c08e2168089a64c34313930571fcbe5359d71c608a97ce504f7ca"
+  digest = "1:499b09c6fecbec76e839ef9acf07af100219048ed22b3ca7d78948ae2767e781"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -31,7 +28,6 @@
     "ptypes",
     "ptypes/any",
     "ptypes/duration",
-    "ptypes/empty",
     "ptypes/struct",
     "ptypes/timestamp",
     "ptypes/wrappers",
@@ -153,12 +149,9 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a2fc247e64b5dafd3251f12d396ec85f163d5bb38763c4997856addddf6e78d8"
+  digest = "1:b521f10a2d8fa85c04a8ef4e62f2d1e14d303599a55d64dabf9f5a02f84d35eb"
   name = "golang.org/x/sync"
-  packages = [
-    "errgroup",
-    "semaphore",
-  ]
+  packages = ["errgroup"]
   pruneopts = "UT"
   revision = "112230192c580c3556b8cee6403af37a4fc5f28c"
 
@@ -196,7 +189,7 @@
   version = "v0.3.2"
 
 [[projects]]
-  digest = "1:994730ad32f9717bf35dccdf1c1619e0a1374439cc990bff8d588c6a68348049"
+  digest = "1:5547ddc83919a19761cd976ed633ac3fd20e53341150140ba085d4569c8cbcdc"
   name = "google.golang.org/api"
   packages = [
     "cloudbuild/v1",
@@ -208,7 +201,6 @@
     "iterator",
     "option",
     "storage/v1",
-    "support/bundler",
     "transport",
     "transport/grpc",
     "transport/http",
@@ -241,23 +233,15 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f24be77fdd5624b07d22093335e50834602f49eca8b7247847ff4f2b7e411726"
+  digest = "1:8507e4270c1e2fc10a8536a1ca832529b070307ce2b3aa1c82b285f205793871"
   name = "google.golang.org/genproto"
   packages = [
-    "googleapis/api",
     "googleapis/api/annotations",
-    "googleapis/api/distribution",
-    "googleapis/api/label",
-    "googleapis/api/metric",
-    "googleapis/api/monitoredres",
     "googleapis/datastore/v1",
     "googleapis/iam/v1",
-    "googleapis/logging/type",
-    "googleapis/logging/v2",
     "googleapis/rpc/code",
     "googleapis/rpc/status",
     "googleapis/type/latlng",
-    "protobuf/field_mask",
   ]
   pruneopts = "UT"
   revision = "54afdca5d873f7b529e2ce3def1a99df16feda90"
@@ -310,7 +294,6 @@
   input-imports = [
     "cloud.google.com/go/compute/metadata",
     "cloud.google.com/go/datastore",
-    "cloud.google.com/go/logging",
     "cloud.google.com/go/storage",
     "github.com/google/go-containerregistry/pkg/authn",
     "github.com/google/go-containerregistry/pkg/name",
@@ -320,9 +303,10 @@
     "github.com/google/go-containerregistry/pkg/v1/types",
     "github.com/google/ko/pkg/build",
     "github.com/google/uuid",
-    "golang.org/x/oauth2/google",
+    "golang.org/x/oauth2",
     "google.golang.org/api/cloudbuild/v1",
     "google.golang.org/api/googleapi",
+    "google.golang.org/api/option",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

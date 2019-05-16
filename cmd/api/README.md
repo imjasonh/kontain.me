@@ -33,7 +33,8 @@ more).
 
 Uploading tarball of [.] to [gs://my-project_cloudbuild/source/1557981306.47-9ee5987ef42e4dc988d7dcd4a4dc0bdc.tgz]
 Created [https://api-an3qnndwmq-uc.a.run.app/v1/projects/my-project/builds/a33da1cc-8e3c-4579-92cd-d7bab749ba22].
-Logs are available in the Cloud Console.
+
+... snip ...
 ID                                    CREATE_TIME                DURATION  SOURCE                                                                                IMAGES                   STATUS
 a33da1cc-8e3c-4579-92cd-d7bab749ba22  2019-05-16T04:35:07+00:00  1M6S      gs://my-project_cloudbuild/source/1557981306.47-9ee5987ef42e4dc988d7dcd4a4dc0bdc.tgz  gcr.io/my-project/built  SUCCESS
 ```
@@ -65,13 +66,21 @@ statusDetail: ''
 
 ## Known differences / NYEs
 
-- [ ] Builds are performed entirely in the context of the
-  `projects.builds.create` request, not by polling a long-running operation.
-  The `--async` flag has no effect.
-- [ ] Build operations (source pulls and image pushes) are authorized using the
+-  Builds are performed entirely in the context of the `projects.builds.create`
+   request, not by polling a long-running operation.  The `--async` flag has no
+effect.
+- Build operations (source pulls and image pushes) are authorized using the
   end-user credentials, not the project's builder service account.
-- [ ] Build logs are not yet written to Cloud Storage, so they're not available
-  via `gcloud`.
+- Build logs are written to Cloud Storage in one shot, at the end of the build.
+  When the build request completes, `gcloud` will show all build logs at once
+without streaming.
+- Build logs are written to the source upload bucket, and not a separate logs
+  bucket as is the default in GCB.
+- Builds cannot be cancelled. The client doesn't know the build ID until it's
+  completed.
+
+## Not yet implemented
+
 - [ ] `timing` is not collected or reported.
 - [ ] `timeout` is not configurable. If Cloud Run request times out, client
   gets a 502.
@@ -79,5 +88,3 @@ statusDetail: ''
   Grafeas instance.
 - [ ] `projects.builds.list` is not yet implemented.
 - [ ] `operations.get` and `operations.list` are not yet implemented.
-- [ ] `projects.builds.cancel` is not implementable (the client doesn't get the
-  build ID until it's complete).

@@ -18,13 +18,16 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/datastore"
+	"cloud.google.com/go/storage"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/uuid"
 	"github.com/imjasonh/kontain.me/pkg/run"
+	"golang.org/x/oauth2"
 	gcb "google.golang.org/api/cloudbuild/v1"
+	"google.golang.org/api/option"
 )
 
 const base = "packs/run:v3alpha2"
@@ -80,6 +83,15 @@ func extractToken(r *http.Request) string {
 		return strings.TrimPrefix(hdr, "Bearer ")
 	}
 	return r.URL.Query().Get("access_token")
+}
+
+func (s *server) logWriter(req *gcb.Build, tok string) io.WriteCloser {
+	ctx := context.Background() // TODO
+	gcs, err := storage.NewClient(ctx, option.WithTokenSource(oauth2.StaticTokenSource(&oauth2.Token{AccessToken: tok})))
+	if err != nil {
+		log.Fatalf("storage.NewClient: %v", err)
+	}
+	return gcs.Bucket(req.LogsBucket).Object(fmt.Sprintf("log-%s.txt", req.Id)).NewWriter(ctx)
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -275,6 +287,12 @@ func (s *server) prepareWorkspace(tok string) (string, string, error) {
 func (s *server) fetchAndBuild(src, layers, tok string, req *gcb.Build) error {
 	image := req.Images[0]
 	source := fmt.Sprintf("https://storage.googleapis.com/%s/%s?access_token=%s", req.Source.StorageSource.Bucket, req.Source.StorageSource.Object, tok)
+	w := s.logWriter(req, tok)
+	defer func() {
+		if err := w.Close(); err != nil {
+			s.error.Printf("Closing GCS log: %v", err)
+		}
+	}()
 	for _, cmd := range []string{
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), layers),
@@ -284,7 +302,7 @@ func (s *server) fetchAndBuild(src, layers, tok string, req *gcb.Build) error {
 		fmt.Sprintf("/lifecycle/builder -layers=%s -app=%s -group=%s/group.toml -plan=%s/plan.toml", layers, src, layers, layers),
 		fmt.Sprintf("/lifecycle/exporter -layers=%s -helpers=false -app=%s -image=%s -group=%s/group.toml %s", layers, src, base, layers, image),
 	} {
-		if err := run.Do(s.info.Writer(), cmd); err != nil {
+		if err := run.Do(io.MultiWriter(s.info.Writer(), w), cmd); err != nil {
 			return fmt.Errorf("Running %q: %v", cmd, err)
 		}
 	}
