@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -23,8 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
-	"cloud.google.com/go/logging"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -34,20 +31,9 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-	projectID, err := metadata.ProjectID()
-	if err != nil {
-		log.Fatalf("metadata.ProjectID: %v", err)
-	}
-	client, err := logging.NewClient(ctx, projectID)
-	if err != nil {
-		log.Fatalf("logging.NewClient: %v", err)
-	}
-	lg := client.Logger("server")
-
 	http.Handle("/v2/", &server{
-		info:  lg.StandardLogger(logging.Info),
-		error: lg.StandardLogger(logging.Error),
+		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
+		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
 	})
 
 	log.Println("Starting...")

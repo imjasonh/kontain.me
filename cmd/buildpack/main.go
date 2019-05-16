@@ -15,7 +15,6 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/datastore"
-	"cloud.google.com/go/logging"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
@@ -28,32 +27,26 @@ import (
 var projectID = ""
 
 func init() {
-	p, err := metadata.ProjectID()
+	var err error
+	projectID, err = metadata.ProjectID()
 	if err != nil {
 		log.Fatalf("metadata.ProjectID: %v", err)
 	}
-	projectID = p
 }
 
 const base = "packs/run:v3alpha2"
 
 func main() {
 	ctx := context.Background()
-	client, err := logging.NewClient(ctx, projectID)
-	if err != nil {
-		log.Fatalf("logging.NewClient: %v", err)
-	}
-	lg := client.Logger("server")
-
-	dsClient, err := datastore.NewClient(ctx, projectID)
+	ds, err := datastore.NewClient(ctx, projectID)
 	if err != nil {
 		log.Fatalf("datastore.NewClient: %v", err)
 	}
 
 	http.Handle("/v2/", &server{
-		info:      lg.StandardLogger(logging.Info),
-		error:     lg.StandardLogger(logging.Error),
-		datastore: dsClient,
+		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
+		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
+		ds:    ds,
 	})
 
 	log.Println("Starting...")
@@ -68,7 +61,7 @@ func main() {
 
 type server struct {
 	info, error *log.Logger
-	datastore   *datastore.Client
+	ds          *datastore.Client
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -167,7 +160,7 @@ func (s *server) checkCachedManifest(revision string) []byte {
 	k := datastore.NameKey("Manifests", revision, nil)
 	var e cachedManifest
 	ctx := context.Background() // TODO
-	if err := s.datastore.Get(ctx, k, &e); err == datastore.ErrNoSuchEntity {
+	if err := s.ds.Get(ctx, k, &e); err == datastore.ErrNoSuchEntity {
 		s.info.Printf("No cached manifest digest for %q", revision)
 	} else if err != nil {
 		s.error.Printf("datastore.Get: %v", err)
@@ -179,7 +172,7 @@ func (s *server) putCachedManifest(revision string, manifest []byte) {
 	k := datastore.NameKey("Manifests", revision, nil)
 	e := cachedManifest{manifest}
 	ctx := context.Background() // TODO
-	if _, err := s.datastore.Put(ctx, k, &e); err != nil {
+	if _, err := s.ds.Put(ctx, k, &e); err != nil {
 		s.error.Printf("datastore.Put: %v", err)
 	}
 }

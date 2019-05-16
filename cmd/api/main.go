@@ -46,8 +46,8 @@ func main() {
 	}
 
 	http.Handle("/", &server{
-		info:  log.New(os.Stdout, "INFO ", 0),
-		error: log.New(os.Stderr, "ERROR ", 0),
+		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
+		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
 		ds:    ds,
 	})
 
