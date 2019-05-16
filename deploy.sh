@@ -2,6 +2,13 @@
 
 set -euxo pipefail
 
+KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/api && \
+gcloud --project=kontainme beta run deploy api \
+  --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/api \
+  --memory=2Gi \
+  --concurrency=1 \
+  --region=us-central1
+
 KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/app && \
 gcloud --project=kontainme beta run deploy app \
   --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/app \
