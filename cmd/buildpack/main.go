@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +23,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
-	"golang.org/x/oauth2/google"
 )
 
 var projectID = ""
@@ -211,23 +209,6 @@ func (s *server) resolveCommit(repo, ref string) (string, error) {
 }
 
 func (s *server) prepareWorkspace() (string, string, error) {
-	// Write Docker config.
-	tok, err := google.ComputeTokenSource("").Token()
-	if err != nil {
-		return "", "", fmt.Errorf("getting access token from metadata: %v", err)
-	}
-	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("oauth2accesstoken:%s", tok.AccessToken)))
-	configJSON := fmt.Sprintf(`{
-	"auths": {
-		"https://gcr.io": {
-			"auth": %q
-		}
-	}
-}`, auth)
-	if err := run.Do(s.info.Writer(), "mkdir -p ~/.docker/ && cat << EOF > ~/.docker/config.json\n"+string(configJSON)+"\nEOF"); err != nil {
-		return "", "", err
-	}
-
 	// Create tempdir to store app source.
 	src, err := ioutil.TempDir("", "")
 	if err != nil {
@@ -240,7 +221,7 @@ func (s *server) prepareWorkspace() (string, string, error) {
 		return "", "", err
 	}
 
-	// Create and set $HOME.
+	// Create and set $HOME, which is otherwise not writable.
 	home, err := ioutil.TempDir("", "")
 	if err != nil {
 		return "", "", err

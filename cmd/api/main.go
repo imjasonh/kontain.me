@@ -244,7 +244,7 @@ func (s *server) prepareWorkspace(tok string) (string, string, error) {
 	}
 	os.Setenv("HOME", home)
 
-	// Write Docker config.
+	// Write Docker config with user credentials.
 	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("oauth2accesstoken:%s", tok)))
 	configJSON := fmt.Sprintf(`{
 	"auths": {
@@ -279,7 +279,6 @@ func (s *server) fetchAndBuild(src, layers, tok string, req *gcb.Build) error {
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), layers),
 		fmt.Sprintf("wget -qO- %s | tar xz -C %s", source, src),
-		fmt.Sprintf("cat $HOME/.docker/config.json"),
 		fmt.Sprintf("/lifecycle/detector -app=%s -group=%s/group.toml -plan=%s/plan.toml", src, layers, layers),
 		fmt.Sprintf("/lifecycle/analyzer -layers=%s -helpers=false -group=%s/group.toml %s", layers, layers, image),
 		fmt.Sprintf("/lifecycle/builder -layers=%s -app=%s -group=%s/group.toml -plan=%s/plan.toml", layers, src, layers, layers),
@@ -293,7 +292,7 @@ func (s *server) fetchAndBuild(src, layers, tok string, req *gcb.Build) error {
 }
 
 func (s *server) getImage(image string) (v1.Image, error) {
-	ref, err := name.NewTag(image, name.WeakValidation)
+	ref, err := name.NewTag(image)
 	if err != nil {
 		return nil, err
 	}
