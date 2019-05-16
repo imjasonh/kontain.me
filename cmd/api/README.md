@@ -1,8 +1,12 @@
 ## What is this?
 
 An experimental GCB API-compatible buildpack service running on Cloud Run. A GCB
-user can use any revently released `gcloud` along with this service to upload
+user can use any recently released `gcloud` along with this service to upload
 and build buildpack-compatible source and produce a container image.
+
+Any requested `steps` are ignored and a buildpack build is executed on the
+source instead. The request must specify exactly one image to build in `images`,
+and must specify a `storageSource`.
 
 This is **an experiment** and should absolutely not be used for anything serious.
 
@@ -15,8 +19,8 @@ $ git clone git@github.com:buildpack/sample-java-app.git
 $ cd sample-java-app
 ```
 
-Then, by overriding the address where API requests are sent, you can create
-Build requests that execute buildpacks builds:
+Then, by using `gcloud` and overriding the address where API requests are sent,
+you can create Build requests that execute buildpacks builds:
 
 ```
 $ CLOUDSDK_API_ENDPOINT_OVERRIDES_CLOUDBUILD=https://api-an3qnndwmq-uc.a.run.app/ gcloud builds submit --tag=gcr.io/my-project/built
