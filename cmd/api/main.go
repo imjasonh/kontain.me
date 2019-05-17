@@ -21,7 +21,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/uuid"
 	"github.com/imjasonh/kontain.me/pkg/run"
@@ -198,14 +198,14 @@ func (s *server) buildImage(req *gcb.Build, tok string) error {
 	}
 
 	// Prepare workspace.
-	src, layers, err := s.prepareWorkspace(tok)
+	src, err := s.prepareWorkspace(tok)
 	if err != nil {
 		return err
 	}
 	// Clean up workspace.
 	defer func() {
 		for _, path := range []string{
-			src, layers, os.Getenv("HOME"),
+			src, os.Getenv("HOME"),
 		} {
 			if err := os.RemoveAll(path); err != nil {
 				s.error.Printf("RemoveAll(%q): %v", path, err)
@@ -215,7 +215,7 @@ func (s *server) buildImage(req *gcb.Build, tok string) error {
 	}()
 
 	// Fetch, detect and build image.
-	if err := s.fetchAndBuild(src, layers, tok, req); err != nil {
+	if err := s.fetchAndBuild(src, tok, req); err != nil {
 		return err
 	}
 
@@ -248,11 +248,11 @@ func (s *server) validate(req *gcb.Build) error {
 	return nil
 }
 
-func (s *server) prepareWorkspace(tok string) (string, string, error) {
+func (s *server) prepareWorkspace(tok string) (string, error) {
 	// Create and set $HOME.
 	home, err := ioutil.TempDir("", "")
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 	os.Setenv("HOME", home)
 
@@ -266,25 +266,14 @@ func (s *server) prepareWorkspace(tok string) (string, string, error) {
 	}
 }`, auth)
 	if err := run.Do(s.info.Writer(), "mkdir -p $HOME/.docker/ && cat << EOF > $HOME/.docker/config.json\n"+string(configJSON)+"\nEOF"); err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	// Create tempdir to store app source.
-	src, err := ioutil.TempDir("", "")
-	if err != nil {
-		return "", "", err
-	}
-
-	// Create layers dir.
-	layers, err := ioutil.TempDir("", "")
-	if err != nil {
-		return "", "", err
-	}
-
-	return src, layers, nil
+	return ioutil.TempDir("", "")
 }
 
-func (s *server) fetchAndBuild(src, layers, tok string, req *gcb.Build) error {
+func (s *server) fetchAndBuild(src, tok string, req *gcb.Build) error {
 	image := req.Images[0]
 	source := fmt.Sprintf("https://storage.googleapis.com/%s/%s?access_token=%s", req.Source.StorageSource.Bucket, req.Source.StorageSource.Object, tok)
 	w := s.logWriter(req, tok)
@@ -294,13 +283,14 @@ func (s *server) fetchAndBuild(src, layers, tok string, req *gcb.Build) error {
 		}
 	}()
 	for _, cmd := range []string{
+		fmt.Sprintf("mkdir -p /tmp/layers"),
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
-		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), layers),
+		fmt.Sprintf("chown -R %d:%d /tmp/layers", os.Geteuid(), os.Getgid()),
 		fmt.Sprintf("wget -qO- %s | tar xz -C %s", source, src),
-		fmt.Sprintf("/lifecycle/detector -app=%s -group=%s/group.toml -plan=%s/plan.toml", src, layers, layers),
-		fmt.Sprintf("/lifecycle/analyzer -layers=%s -helpers=false -group=%s/group.toml %s", layers, layers, image),
-		fmt.Sprintf("/lifecycle/builder -layers=%s -app=%s -group=%s/group.toml -plan=%s/plan.toml", layers, src, layers, layers),
-		fmt.Sprintf("/lifecycle/exporter -layers=%s -helpers=false -app=%s -image=%s -group=%s/group.toml %s", layers, src, base, layers, image),
+		fmt.Sprintf("/lifecycle/detector -app=%s -group=/tmp/layers/group.toml -plan=/tmp/layers/plan.toml", src),
+		fmt.Sprintf("/lifecycle/analyzer -layers=/tmp/layers -helpers=false -group=/tmp/layers/group.toml %s", image),
+		fmt.Sprintf("/lifecycle/builder -layers=/tmp/layers -app=%s -group=/tmp/layers/group.toml -plan=/tmp/layers/plan.toml", src),
+		fmt.Sprintf("/lifecycle/exporter -layers=/tmp/layers -helpers=false -app=%s -image=%s -group=/tmp/layers/group.toml %s", src, base, image),
 	} {
 		if err := run.Do(io.MultiWriter(s.info.Writer(), w), cmd); err != nil {
 			return fmt.Errorf("Running %q: %v", cmd, err)
