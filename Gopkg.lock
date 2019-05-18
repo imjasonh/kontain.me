@@ -20,6 +20,14 @@
   version = "v0.38.0"
 
 [[projects]]
+  digest = "1:6f9339c912bbdda81302633ad7e99a28dfa5a639c864061f1929510a9a64aa74"
+  name = "github.com/dustin/go-humanize"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "9f541cc9db5d55bce703bd99987c9d5cb8eea45e"
+  version = "v1.0.0"
+
+[[projects]]
   digest = "1:499b09c6fecbec76e839ef9acf07af100219048ed22b3ca7d78948ae2767e781"
   name = "github.com/golang/protobuf"
   packages = [
@@ -89,6 +97,14 @@
   pruneopts = "UT"
   revision = "7087cb70de9f7a8bc0a10c375cb0d2280a8edf9c"
   version = "v0.5.1"
+
+[[projects]]
+  branch = "master"
+  digest = "1:b2a3ee6c6584219e30393fe61a85e9a10a7d9f966b7d66e9fedeb5ee5642195e"
+  name = "github.com/tmc/dot"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "6d252d5ff882ba9963502860f30ab3673c6c7322"
 
 [[projects]]
   digest = "1:429596ab6fea904f2ea2a74de9c95692e39a5a6269e778b770676374e7063f3e"
@@ -295,6 +311,7 @@
     "cloud.google.com/go/compute/metadata",
     "cloud.google.com/go/datastore",
     "cloud.google.com/go/storage",
+    "github.com/dustin/go-humanize",
     "github.com/google/go-containerregistry/pkg/authn",
     "github.com/google/go-containerregistry/pkg/name",
     "github.com/google/go-containerregistry/pkg/v1",
@@ -303,6 +320,7 @@
     "github.com/google/go-containerregistry/pkg/v1/types",
     "github.com/google/ko/pkg/build",
     "github.com/google/uuid",
+    "github.com/tmc/dot",
     "golang.org/x/oauth2",
     "google.golang.org/api/cloudbuild/v1",
     "google.golang.org/api/googleapi",

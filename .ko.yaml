@@ -1,4 +1,5 @@
 baseImageOverrides:
   github.com/imjasonh/kontain.me/cmd/ko: golang
   github.com/imjasonh/kontain.me/cmd/buildpack: packs/samples:v3alpha2
-  github.com/imjasonh/kontain.me/cmd/api: packs/samples:v3alpha2
+  github.com/imjasonh/kontain.me/cmd/api: heroku/buildpacks
+  github.com/imjasonh/kontain.me/cmd/viz: gcr.io/kontainme/graphviz

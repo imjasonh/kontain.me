@@ -2,6 +2,13 @@
 
 set -euxo pipefail
 
+docker build -t gcr.io/kontainme/graphviz -f cmd/viz/Dockerfile cmd/viz/
+docker push gcr.io/kontainme/graphviz
+KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/viz && \
+gcloud --project=kontainme beta run deploy viz \
+  --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/viz \
+  --region=us-central1
+
 KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/api && \
 gcloud --project=kontainme beta run deploy api \
   --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/api \

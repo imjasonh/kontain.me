@@ -1,0 +1,41 @@
+<html>
+<head>
+<style>
+body { font-family: Arial; }
+textarea { width: 100%; height: 80%; font-size: 10pt; font-family: monospace; }
+input[type=submit] { width: 100%; }
+</style>
+</head>
+<body>
+<h1>Specify image references to generate layer hierarchy</h1>
+<p>Lines beggining with <code>#</code> are ignored.</p>
+<form action="/viz" method="POST" id="form">
+<textarea name="images" form="form">
+# Some OS images
+ubuntu
+ubuntu:18.04
+ubuntu:18.10
+ubuntu:19.04
+alpine
+alpine:3.9.4
+debian
+centos
+
+# Some Knative Serving images
+gcr.io/knative-releases/github.com/knative/serving/cmd/activator:v0.6.0
+gcr.io/knative-releases/github.com/knative/serving/cmd/autoscaler
+gcr.io/knative-releases/github.com/knative/serving/cmd/controller
+gcr.io/knative-releases/github.com/knative/serving/cmd/queue
+gcr.io/knative-releases/github.com/knative/serving/cmd/webhook
+
+# Some GCB builder images
+gcr.io/cloud-builders/docker
+gcr.io/cloud-builders/gcloud
+gcr.io/cloud-builders/gcloud-slim
+gcr.io/cloud-builders/kubectl
+gcr.io/cloud-builders/gsutil
+</textarea><br />
+<input type="submit"></input>
+</form>
+</body>
+</html>
