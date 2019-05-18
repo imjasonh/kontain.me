@@ -20,13 +20,14 @@ alpine
 alpine:3.9.4
 debian
 centos
+busybox
 
 # Some Knative Serving images
 gcr.io/knative-releases/github.com/knative/serving/cmd/activator:v0.6.0
-gcr.io/knative-releases/github.com/knative/serving/cmd/autoscaler
-gcr.io/knative-releases/github.com/knative/serving/cmd/controller
-gcr.io/knative-releases/github.com/knative/serving/cmd/queue
-gcr.io/knative-releases/github.com/knative/serving/cmd/webhook
+gcr.io/knative-releases/github.com/knative/serving/cmd/autoscaler:v0.6.0
+gcr.io/knative-releases/github.com/knative/serving/cmd/controller:v0.6.0
+gcr.io/knative-releases/github.com/knative/serving/cmd/queue:v0.6.0
+gcr.io/knative-releases/github.com/knative/serving/cmd/webhook:v0.6.0
 
 # Some GCB builder images
 gcr.io/cloud-builders/docker
@@ -34,6 +35,17 @@ gcr.io/cloud-builders/gcloud
 gcr.io/cloud-builders/gcloud-slim
 gcr.io/cloud-builders/kubectl
 gcr.io/cloud-builders/gsutil
+
+# Some images from Docker Hub
+node
+maven
+docker
+nginx
+envoyproxy/envoy
+redis
+postgres
+mysql
+mongo
 </textarea><br />
 <input type="submit"></input>
 </form>
