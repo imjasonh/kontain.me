@@ -71,10 +71,15 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "": // API Version check.
 		w.Header().Set("Docker-Distribution-API-Version", "registry/2.0")
+	case strings.Contains(path, "/blobs/"),
+		strings.Contains(path, "/manifests/sha256:"):
+		// Extract requested blob digest and redirect to serve it from GCS.
+		// If it doesn't exist, this will return 404.
+		parts := strings.Split(r.URL.Path, "/")
+		digest := parts[len(parts)-1]
+		serve.Blob(w, r, digest)
 	case strings.Contains(path, "/manifests/"):
 		s.serveBuildpackManifest(w, r)
-	case strings.Contains(path, "/blobs/"):
-		serve.Blob(w, r)
 	default:
 		serve.Error(w, serve.ErrNotFound)
 	}
@@ -149,7 +154,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Serve the manifest.
-	serve.Manifest(w, img)
+	serve.Manifest(w, r, img)
 }
 
 type cachedManifest struct {

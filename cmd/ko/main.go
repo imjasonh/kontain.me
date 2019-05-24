@@ -59,10 +59,15 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// API Version check.
 		w.Header().Set("Docker-Distribution-API-Version", "registry/2.0")
 		return
-	case strings.HasPrefix(path, "ko/") && strings.Contains(path, "/manifests/"):
+	case strings.Contains(path, "/blobs/"),
+		strings.Contains(path, "/manifests/sha256:"):
+		// Extract requested blob digest and redirect to serve it from GCS.
+		// If it doesn't exist, this will return 404.
+		parts := strings.Split(r.URL.Path, "/")
+		digest := parts[len(parts)-1]
+		serve.Blob(w, r, digest)
+	case strings.Contains(path, "/manifests/"):
 		s.serveKoManifest(w, r)
-	case strings.HasPrefix(path, "ko/") && strings.Contains(path, "/blobs/"):
-		serve.Blob(w, r)
 	default:
 		serve.Error(w, serve.ErrNotFound)
 	}
@@ -119,5 +124,5 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Error(w, serve.ErrInvalid)
 		return
 	}
-	serve.Manifest(w, img)
+	serve.Manifest(w, r, img)
 }
