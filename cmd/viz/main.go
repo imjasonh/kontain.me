@@ -120,9 +120,9 @@ func (this *node) computeTotalSize() uint64 {
 func (this *node) _computeTotalSize(visited map[*node]struct{}) uint64 {
 	s := this.size
 	for e := range this.outEdgeSet {
-		if _, ok := visited[e.dst]; ok {
-			s += e.dst._computeTotalSize(visited)
+		if _, ok := visited[e.dst]; !ok {
 			visited[e.dst] = setEntryExists
+			s += e.dst._computeTotalSize(visited)
 		}
 	}
 	return s
