@@ -113,9 +113,17 @@ type node struct {
 }
 
 func (this *node) computeTotalSize() uint64 {
+	v := make(map[*node]struct{})
+	return this._computeTotalSize(v)
+}
+
+func (this *node) _computeTotalSize(visited map[*node]struct{}) uint64 {
 	s := this.size
 	for e := range this.outEdgeSet {
-		s += e.dst.computeTotalSize()
+		if _, ok := visited[e.dst]; ok {
+			s += e.dst._computeTotalSize(visited)
+			visited[e.dst] = setEntryExists
+		}
 	}
 	return s
 }
