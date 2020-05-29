@@ -2,55 +2,64 @@
 
 set -euxo pipefail
 
+project=kontainme
+region=us-central1
+
 case ${1:-"all"} in
 
   viz | all)
-    docker build -t gcr.io/kontainme/graphviz -f cmd/viz/Dockerfile cmd/viz/
-    docker push gcr.io/kontainme/graphviz
-    KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/viz && \
-    gcloud --project=kontainme beta run deploy viz \
-      --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/viz \
-      --region=us-central1
+    docker build -t gcr.io/${project}/graphviz -f cmd/viz/Dockerfile cmd/viz/
+    docker push gcr.io/${project}/graphviz
+    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/viz && \
+    gcloud --project=${project} beta run deploy viz \
+      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/viz \
+      --region=${region} \
+      --platform=managed
     ;;
 
   api | all)
-    KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/api && \
-    gcloud --project=kontainme beta run deploy api \
-      --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/api \
+    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/api && \
+    gcloud --project=${project} beta run deploy api \
+      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/api \
       --memory=2Gi \
       --concurrency=1 \
-      --region=us-central1
+      --region=${region} \
+      --platform=managed
     ;;
 
   app | all)
-    KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/app && \
-    gcloud --project=kontainme beta run deploy app \
-      --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/app \
-      --region=us-central1
+    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/app && \
+    gcloud --project=${project} beta run deploy app \
+      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/app \
+      --region=${region} \
+      --platform=managed
     ;;
 
   random | all)
-    KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/random && \
-    gcloud --project=kontainme beta run deploy random \
-      --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/random \
-      --region=us-central1
+    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/random && \
+    gcloud --project=${project} beta run deploy random \
+      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/random \
+      --region=${region} \
+      --platform=managed
     ;;
 
   ko | all)
-    KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/ko && \
-    gcloud --project=kontainme beta run deploy ko \
-      --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/ko \
+    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/ko && \
+    gcloud --project=${project} beta run deploy ko \
+      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/ko \
       --memory=2Gi \
       --concurrency=1 \
-      --region=us-central1
+      --region=${region} \
+      --platform=managed
     ;;
 
   buildpack | all)
-    KO_DOCKER_REPO=gcr.io/kontainme ko publish -P ./cmd/buildpack && \
-    gcloud --project=kontainme beta run deploy buildpack \
-      --image=gcr.io/kontainme/github.com/imjasonh/kontain.me/cmd/buildpack \
+    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/buildpack && \
+    gcloud --project=${project} beta run deploy buildpack \
+      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/buildpack \
       --memory=2Gi \
       --concurrency=1 \
-      --region=us-central1
+      --region=${region} \
+      --platform=managed
     ;;
 esac

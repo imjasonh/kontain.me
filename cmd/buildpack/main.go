@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -106,16 +107,18 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	}()
 
 	// Determine source repo and revision.
-	path := strings.TrimPrefix(r.URL.Path, "/v2/ko/")
-	parts := strings.Split(path, "/")
-	repo := strings.Join(parts[2:len(parts)-2], "/")
-	if repo == "" || repo == "buildpack" {
-		repo = "buildpack/sample-java-app"
-	}
+	parts := strings.Split(r.URL.Path, "/")
+	repo := strings.Join(parts[2:4], "/")
+	path := strings.Join(parts[4:len(parts)-2], "/")
 	revision := parts[len(parts)-1]
 	if revision == "latest" {
 		revision = "master"
 	}
+	if repo == "" || repo == "buildpack" {
+		repo = "googlecloudplatform/buildpack-samples"
+		path = "sample-go"
+	}
+
 	// Resolve branch/tag/whatever -> SHA
 	revision, err = s.resolveCommit(repo, revision)
 	if err != nil {
@@ -133,7 +136,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Fetch, detect and build source.
-	image, err := s.fetchAndBuild(src, layers, repo, revision)
+	image, err := s.fetchAndBuild(src, layers, repo, revision, path)
 	if err != nil {
 		s.error.Println("ERROR:", err)
 		serve.Error(w, err)
@@ -229,7 +232,7 @@ func (s *server) prepareWorkspace() (string, string, error) {
 	return src, layers, nil
 }
 
-func (s *server) fetchAndBuild(src, layers, repo, revision string) (string, error) {
+func (s *server) fetchAndBuild(src, layers, repo, revision, path string) (string, error) {
 	image := fmt.Sprintf("gcr.io/%s/built-%d", projectID, time.Now().Unix)
 	source := fmt.Sprintf("https://github.com/%s/archive/%s.tar.gz", repo, revision)
 
@@ -241,15 +244,17 @@ func (s *server) fetchAndBuild(src, layers, repo, revision string) (string, erro
 		return "", fmt.Errorf("HEAD %s (%d): %s", source, resp.StatusCode, resp.Status)
 	}
 
+	srcpath := filepath.Join(src, path)
+
 	for _, cmd := range []string{
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), layers),
-		fmt.Sprintf("wget -qO- %s | tar xvz --strip-components=1 -C %s", source, src),
-		fmt.Sprintf("ls -R %s", src),
-		fmt.Sprintf("/lifecycle/detector -app=%s -group=%s/group.toml -plan=%s/plan.toml", src, layers, layers),
-		fmt.Sprintf("/lifecycle/analyzer -layers=%s -helpers=true -group=%s/group.toml %s", layers, layers, image),
-		fmt.Sprintf("/lifecycle/builder -layers=%s -app=%s -group=%s/group.toml -plan=%s/plan.toml", layers, src, layers, layers),
-		fmt.Sprintf("/lifecycle/exporter -layers=%s -helpers=true -app=%s -image=%s -group=%s/group.toml %s", layers, src, base, layers, image),
+		fmt.Sprintf("curl -fsSL %s | tar xvz --strip-components=1 -C %s", source, src),
+		fmt.Sprintf("cd %s", srcpath),
+		fmt.Sprintf("/lifecycle/detector -app=%s -group=%s/group.toml -plan=%s/plan.toml", srcpath, layers, layers),
+		fmt.Sprintf("/lifecycle/analyzer -layers=%s -group=%s/group.toml %s", layers, layers, image),
+		fmt.Sprintf("/lifecycle/builder -layers=%s -app=%s -group=%s/group.toml -plan=%s/plan.toml", layers, srcpath, layers, layers),
+		fmt.Sprintf("/lifecycle/exporter -layers=%s -app=%s -image=%s -group=%s/group.toml %s", layers, srcpath, base, layers, image),
 	} {
 		if err := run.Do(s.info.Writer(), cmd); err != nil {
 			return "", fmt.Errorf("Running %q: %v", cmd, err)

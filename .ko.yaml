@@ -1,6 +1,6 @@
 baseImageOverrides:
   github.com/imjasonh/kontain.me/cmd/ko: golang
-  github.com/imjasonh/kontain.me/cmd/buildpack: packs/samples:v3alpha2
+  github.com/imjasonh/kontain.me/cmd/buildpack: gcr.io/buildpacks/builder
   github.com/imjasonh/kontain.me/cmd/viz: gcr.io/kontainme/graphviz
 
   # Works with any of:
