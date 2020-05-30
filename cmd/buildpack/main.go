@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
+	"golang.org/x/oauth2/google"
 )
 
 var projectID = ""
@@ -246,11 +247,31 @@ func (s *server) fetchAndBuild(src, layers, repo, revision, path string) (string
 
 	srcpath := filepath.Join(src, path)
 
+	ts, err := google.DefaultTokenSource(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return "", fmt.Errorf("google.DefaultTokenSource: %v", err)
+	}
+	tok, err := ts.Token()
+	if err != nil {
+		return "", fmt.Errorf("credentials.Token: %v", err)
+	}
+
 	for _, cmd := range []string{
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), layers),
-		fmt.Sprintf("curl -fsSL %s | tar xvz --strip-components=1 -C %s", source, src),
+		fmt.Sprintf("curl -fsSL %s | tar xz --strip-components=1 -C %s", source, src),
 		fmt.Sprintf("cd %s", srcpath),
+		fmt.Sprintf(`
+mkdir -p ~/.docker/ && cat > ~/.docker/config.json << EOF
+{
+  "auths": {
+    "gcr.io": {
+      "username": "oauth2accesstoken",
+      "password": "%s"
+    }
+  }
+}
+EOF && cat ~/.docker/config.json`, tok.AccessToken),
 		fmt.Sprintf("/lifecycle/detector -app=%s -group=%s/group.toml -plan=%s/plan.toml", srcpath, layers, layers),
 		fmt.Sprintf("/lifecycle/analyzer -layers=%s -group=%s/group.toml %s", layers, layers, image),
 		fmt.Sprintf("/lifecycle/builder -layers=%s -app=%s -group=%s/group.toml -plan=%s/plan.toml", layers, srcpath, layers, layers),
