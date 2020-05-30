@@ -32,6 +32,8 @@ container image using <a
 build and (eventually) serve a Docker image containing <code>ko</code> itself.
 <i>Koception!</i></p>
 
+<p><b>NB:</b> All Docker image references must be lowercase.</p>
+
 <h1><code>buildpack.kontain.me</code></h1>
 
 <p><code>docker pull buildpack.kontain.me/[ghuser]/[ghrepo]/[path/to/app]:[revision]</code>
@@ -41,20 +43,21 @@ serves an image fetched from source on GitHub and built using <a
  builder</a></p>
 
 <p>For example, <code>docker pull
-	buildpack.kontain.me/GoogleCloudPlatform/buildpack-samples/sample-go:master</code>
+	buildpack.kontain.me/googlecloudplatform/buildpack-samples/sample-go:master</code>
  fetches, builds and serves a <a
  href="https://github.com/GoogleCloudPlatform/buildpack-samples/tree/master/sample-go">sample
  Go app</a>.</p>
 
-The image tag can be a commit, branch or tag. The default,
-<code>:latest</code>, pulls the master branch.
+<p><b>NB:</b> All Docker image references must be lowercase.</p>
+
+<p>The image tag can be a commit, branch or tag. The default,
+<code>:latest</code>, pulls the master branch.</p>
 
 <h1>Caveats</h1>
 
-<p>The registry does not accept pushes and does not handle requests for images
-by digest. This is a silly hack and probably isn't stable. Don't rely on it for
-anything serious. It could probably do a lot of smart things to be a lot
-faster.</p>
+<p>The registry does not accept pushes of any kind. This is a silly hack and if
+it's at all reliable it's by accident. Don't rely on it for anything serious.
+It could probably do a lot of smart things to be a lot faster.</p>
 
 <p>Source is available on
 <a href="https://github.com/imjasonh/kontain.me">GitHub</a>.</p>
