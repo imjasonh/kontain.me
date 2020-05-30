@@ -172,7 +172,7 @@ func (s *server) checkCachedManifest(revision, path string) []byte {
 	var e cachedManifest
 	ctx := context.Background() // TODO
 	if err := s.ds.Get(ctx, k, &e); err == datastore.ErrNoSuchEntity {
-		s.info.Printf("No cached manifest digest for %q", revision)
+		s.info.Printf("No cached manifest digest for revision=%q path=%q", revision, path)
 	} else if err != nil {
 		s.error.Printf("datastore.Get: %v", err)
 	}
