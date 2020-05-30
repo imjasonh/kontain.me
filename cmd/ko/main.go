@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -118,7 +119,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.info.Printf("ko build %s...", ip)
-	img, err := g.Build(ip)
+	img, err := g.Build(context.Background(), ip)
 	if err != nil {
 		s.error.Printf("ERROR (ko build): %s", err)
 		serve.Error(w, serve.ErrInvalid)

@@ -130,7 +130,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 
 	// Check whether we have a cached manfiest for this revision.
 	// If we do, just serve it.
-	if b := s.checkCachedManifest(revision); len(b) != 0 {
+	if b := s.checkCachedManifest(revision, path); len(b) != 0 {
 		w.Header().Set("Content-Type", string(types.DockerManifestSchema2)) // TODO: don't hard-code
 		io.Copy(w, bytes.NewReader(b))
 		return
@@ -154,7 +154,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 
 	// Cache the generated manifest.
 	if b, _ := img.RawManifest(); len(b) != 0 {
-		s.putCachedManifest(revision, b)
+		s.putCachedManifest(revision, path, b)
 	}
 
 	// Serve the manifest.
@@ -165,8 +165,10 @@ type cachedManifest struct {
 	Manifest []byte `datastore:",noindex"`
 }
 
-func (s *server) checkCachedManifest(revision string) []byte {
-	k := datastore.NameKey("Manifests", revision, nil)
+func key(revision, path string) string { return fmt.Sprintf("%s:%s", revision, path) }
+
+func (s *server) checkCachedManifest(revision, path string) []byte {
+	k := datastore.NameKey("Manifests", key(revision, path), nil)
 	var e cachedManifest
 	ctx := context.Background() // TODO
 	if err := s.ds.Get(ctx, k, &e); err == datastore.ErrNoSuchEntity {
@@ -177,8 +179,8 @@ func (s *server) checkCachedManifest(revision string) []byte {
 	return e.Manifest
 }
 
-func (s *server) putCachedManifest(revision string, manifest []byte) {
-	k := datastore.NameKey("Manifests", revision, nil)
+func (s *server) putCachedManifest(revision, path string, manifest []byte) {
+	k := datastore.NameKey("Manifests", key(revision, path), nil)
 	e := cachedManifest{manifest}
 	ctx := context.Background() // TODO
 	if _, err := s.ds.Put(ctx, k, &e); err != nil {

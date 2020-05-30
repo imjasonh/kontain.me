@@ -34,15 +34,20 @@ build and (eventually) serve a Docker image containing <code>ko</code> itself.
 
 <h1><code>buildpack.kontain.me</code></h1>
 
-<p><code>docker pull buildpack.kontain.me/[ghuser]/[ghrepo]:[revision]</code>
+<p><code>docker pull buildpack.kontain.me/[ghuser]/[ghrepo]/[path/to/app]:[revision]</code>
 serves an image fetched from source on GitHub and built using <a
- href="https://buildpacks.io">CNCF Buildpacks</a>.</p>
+ href="https://buildpacks.io">CNCF Buildpacks</a>. Specifically, it uses the <a
+ href="https://github.com/GoogleCloudPlatform/buildpacks">GCP buildpack
+ builder</a></p>
 
 <p>For example, <code>docker pull
-	buildpack.kontain.me/buildpack/sample-java-app:b032838</code> fetches,
-builds and serves a <a
-	href="https://github.com/buildpack/sample-java-app">sample Java
-	app</a>.</p>
+	buildpack.kontain.me/GoogleCloudPlatform/buildpack-samples/sample-go:master</code>
+ fetches, builds and serves a <a
+ href="https://github.com/GoogleCloudPlatform/buildpack-samples/tree/master/sample-go">sample
+ Go app</a>.</p>
+
+The image tag can be a commit, branch or tag. The default,
+<code>:latest</code>, pulls the master branch.
 
 <h1>Caveats</h1>
 
