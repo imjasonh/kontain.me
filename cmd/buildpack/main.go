@@ -50,6 +50,7 @@ func main() {
 		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
 		ds:    ds,
 	})
+	http.Handle("/", http.RedirectHandler("https://kontain.me", http.StatusMovedPermanently))
 
 	log.Println("Starting...")
 	port := os.Getenv("PORT")

@@ -68,7 +68,6 @@ case ${1:-"all"} in
     gcloud --project=${project} run deploy mirror \
       --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/mirror \
       --memory=2Gi \
-      --concurrency=1 \
       --region=${region} \
       --platform=managed
     ;;

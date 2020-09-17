@@ -48,11 +48,12 @@ func main() {
 		log.Fatalf("datastore.NewClient: %v", err)
 	}
 
-	http.Handle("/", &server{
+	http.Handle("/v1/projects/", &server{
 		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
 		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
 		ds:    ds,
 	})
+	http.Handle("/", http.RedirectHandler("https://kontain.me", http.StatusMovedPermanently))
 
 	log.Println("Starting...")
 	port := os.Getenv("PORT")
