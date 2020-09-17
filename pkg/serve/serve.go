@@ -21,6 +21,16 @@ func Blob(w http.ResponseWriter, r *http.Request, digest string) {
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
+func BlobExists(h v1.Hash) error {
+	ctx := context.Background() // TODO
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("NewClient: %v", err)
+	}
+	_, err = client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", h)).Attrs(ctx)
+	return err
+}
+
 func writeBlob(h v1.Hash, rc io.ReadCloser, contentType string) error {
 	ctx := context.Background() // TODO
 	client, err := storage.NewClient(ctx)
@@ -56,7 +66,7 @@ func writeBlob(h v1.Hash, rc io.ReadCloser, contentType string) error {
 	return nil
 }
 
-// ServeManifest writes config and layer blobs for the image, then serves the
+// Manifest writes config and layer blobs for the image, then serves the
 // manifest contents pointing to those blobs.
 func Manifest(w http.ResponseWriter, r *http.Request, img v1.Image) {
 	// Write config blob for later serving.

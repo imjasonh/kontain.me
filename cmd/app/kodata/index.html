@@ -53,6 +53,18 @@ serves an image fetched from source on GitHub and built using <a
 <p>The image tag can be a commit, branch or tag. The default,
 <code>:latest</code>, pulls the master branch.</p>
 
+<h1><code>mirror.kontain.me</code></h1>
+
+<p><code>docker pull mirror.kontain.me/[image]</code> will pull the an image
+(if it can) and cache the manifest and layers. Subsequent pulls will, if
+possible, serve from the cache.</p>
+
+<p>This acts as a simple <a
+	href="https://docs.docker.com/registry/recipes/mirror/">registry
+	mirror</a> which can reduce the number of pulls from the original
+registry, in case they impose request limits or exorbitant bandwidth costs or
+latencies.</p>
+
 <h1>Caveats</h1>
 
 <p>The registry does not accept pushes of any kind. This is a silly hack and if

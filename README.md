@@ -29,6 +29,17 @@ For example, `docker pull
 buildpack.kontain.me/buildpack/sample-java-app:b032838` fetches, builds and
 serves a [sample Java app](https://github.com/buildpack/sample-java-app).
 
+# `mirror.kontain.me`
+
+`docker pull mirror.kontain.me/[image]` will pull the an image (if it can) and
+cache the manifest and layers. Subsequent pulls will, if possible, serve from
+the cache.
+
+This acts as a simple [registry
+mirror](https://docs.docker.com/registry/recipes/mirror/) which can reduce the
+number of pulls from the original registry, in case they impose request limits
+or exorbitant bandwidth costs or latencies.
+
 # Caveats
 
 The registry does not accept pushes and does not handle requests for images
