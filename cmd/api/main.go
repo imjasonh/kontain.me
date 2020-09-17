@@ -26,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	gcb "google.golang.org/api/cloudbuild/v1"
 	"google.golang.org/api/option"
 )
@@ -282,11 +283,32 @@ func (s *server) fetchAndBuild(src, tok string, req *gcb.Build) error {
 			s.error.Printf("Closing GCS log: %v", err)
 		}
 	}()
+
+	ts, err := google.DefaultTokenSource(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return "", fmt.Errorf("google.DefaultTokenSource: %v", err)
+	}
+	tok, err := ts.Token()
+	if err != nil {
+		return "", fmt.Errorf("credentials.Token: %v", err)
+	}
+
 	for _, cmd := range []string{
 		fmt.Sprintf("mkdir -p /tmp/layers"),
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
 		fmt.Sprintf("chown -R %d:%d /tmp/layers", os.Geteuid(), os.Getgid()),
-		fmt.Sprintf("wget -qO- %s | tar xz -C %s", source, src),
+		fmt.Sprintf("curl -fsSL %s | tar xz -C %s", source, src),
+		fmt.Sprintf(`
+mkdir -p ~/.docker/ && cat > ~/.docker/config.json << EOF
+{
+  "auths": {
+    "gcr.io": {
+      "username": "oauth2accesstoken",
+      "password": "%s"
+    }
+  }
+}
+EOF`, tok.AccessToken),
 		fmt.Sprintf("/lifecycle/detector -app=%s -group=/tmp/layers/group.toml -plan=/tmp/layers/plan.toml", src),
 		fmt.Sprintf("/lifecycle/analyzer -layers=/tmp/layers -helpers=false -group=/tmp/layers/group.toml %s", image),
 		fmt.Sprintf("/lifecycle/builder -layers=/tmp/layers -app=%s -group=/tmp/layers/group.toml -plan=/tmp/layers/plan.toml", src),

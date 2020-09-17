@@ -273,7 +273,7 @@ mkdir -p ~/.docker/ && cat > ~/.docker/config.json << EOF
     }
   }
 }
-EOF && cat ~/.docker/config.json`, tok.AccessToken),
+EOF`, tok.AccessToken),
 		fmt.Sprintf("/lifecycle/detector -app=%s -group=%s/group.toml -plan=%s/plan.toml", srcpath, layers, layers),
 		fmt.Sprintf("/lifecycle/analyzer -layers=%s -group=%s/group.toml %s", layers, layers, image),
 		fmt.Sprintf("/lifecycle/builder -layers=%s -app=%s -group=%s/group.toml -plan=%s/plan.toml", layers, srcpath, layers, layers),
