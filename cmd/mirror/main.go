@@ -93,13 +93,17 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		s.info.Printf("INFO (serve.BlobExists(%q)): %v", d, err)
 		// Blob doesn't exist yet. Try to get the image manifest+layers
 		// and cache them.
-		img, err := remote.Image(ref)
+		idx, err := remote.Index(ref)
 		if err != nil {
-			s.error.Printf("ERROR (remote.Image): %v", err)
+			s.error.Printf("ERROR (remote.Index): %v", err)
 			serve.Error(w, err)
 			return
 		}
-		serve.Manifest(w, r, img)
+		if err := serve.Index(w, r, idx); err != nil {
+			s.error.Printf("ERROR (serve.Index): %v", err)
+			serve.Error(w, err)
+			return
+		}
 	} else {
 		serve.Blob(w, r, d.Digest.String())
 	}

@@ -66,82 +66,108 @@ func writeBlob(h v1.Hash, rc io.ReadCloser, contentType string) error {
 	return nil
 }
 
-// Manifest writes config and layer blobs for the image, then serves the
-// manifest contents pointing to those blobs.
-func Manifest(w http.ResponseWriter, r *http.Request, img v1.Image) {
+// Index writes manifest, config and layer blobs for each image in the index,
+// then writes and redirects to the index manifest contents pointing to those
+// blobs.
+func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex) error {
+	im, err := idx.IndexManifest()
+	if err != nil {
+		return err
+	}
+	for _, m := range im.Manifests {
+		img, err := idx.Image(m.Digest)
+		if err != nil {
+			return err
+		}
+		if _, err := writeManifest(img); err != nil {
+			return err
+		}
+	}
+
+	// Write the manifest as a blob.
+	b, err := idx.RawManifest()
+	if err != nil {
+		return err
+	}
+	mt, err := idx.MediaType()
+	if err != nil {
+		return err
+	}
+	digest, err := idx.Digest()
+	if err != nil {
+		return err
+	}
+	if err := writeBlob(digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+		return err
+	}
+	// Redirect to manifest blob.
+	Blob(w, r, digest.String())
+	return nil
+}
+
+func writeManifest(img v1.Image) (*v1.Hash, error) {
 	// Write config blob for later serving.
 	ch, err := img.ConfigName()
 	if err != nil {
-		log.Printf("ERROR (serveManifest ConfigName): %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	cb, err := img.RawConfigFile()
 	if err != nil {
-		log.Printf("ERROR (serveManifest RawConfigFile): %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	log.Printf("writing config blob %q", ch)
 	if err := writeBlob(ch, ioutil.NopCloser(bytes.NewReader(cb)), ""); err != nil {
-		log.Printf("ERROR (serveManifest writeBlob): %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
 	// Write layer blobs for later serving.
 	layers, err := img.Layers()
 	if err != nil {
-		log.Printf("ERROR (serveManifest Layers): %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	for _, l := range layers {
 		rc, err := l.Compressed()
 		if err != nil {
-			log.Printf("ERROR (serveManifest l.Compressed): %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, err
 		}
 		lh, err := l.Digest()
 		if err != nil {
-			log.Printf("ERROR (serveManifest l.Digest): %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, err
 		}
 		log.Printf("writing layer blob %q", lh)
 		if err := writeBlob(lh, rc, ""); err != nil {
-			log.Printf("ERROR (serveManifest writeBlob): %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, err
 		}
 	}
 
 	// Write the manifest as a blob.
 	b, err := img.RawManifest()
 	if err != nil {
-		log.Printf("ERROR (serveManifest RawManifest): %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	mt, err := img.MediaType()
 	if err != nil {
-		log.Printf("ERROR (serveManifest MediaType): %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	digest, err := img.Digest()
 	if err != nil {
-		log.Printf("ERROR (serveManifest Digest): %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 	if err := writeBlob(digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
-		log.Printf("ERROR (serveManifest writeBlob): %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, err
 	}
+	return &digest, nil
+}
+
+// Manifest writes config and layer blobs for the image, then writes and
+// redirects to the image manifest contents pointing to those blobs.
+func Manifest(w http.ResponseWriter, r *http.Request, img v1.Image) error {
+	digest, err := writeManifest(img)
+	if err != nil {
+		return err
+	}
+
 	// Redirect to manifest blob.
 	Blob(w, r, digest.String())
-	fmt.Printf("Served manifest: %s", string(b))
+	return nil
 }
