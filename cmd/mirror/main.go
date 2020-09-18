@@ -120,7 +120,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if err := serve.Manifest(w, r, img); err != nil {
-				s.error.Printf("ERROR (serve.Index): %v", err)
+				s.error.Printf("ERROR (serve.Manifest): %v", err)
 				serve.Error(w, err)
 				return
 			}

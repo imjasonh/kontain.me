@@ -159,7 +159,11 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Serve the manifest.
-	serve.Manifest(w, r, img)
+	if err := serve.Manifest(w, r, img); err != nil {
+		s.error.Printf("ERROR (serve.Manifest): %v", err)
+		serve.Error(w, err)
+		return
+	}
 }
 
 type cachedManifest struct {

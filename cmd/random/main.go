@@ -83,5 +83,9 @@ func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Error(w, err)
 		return
 	}
-	serve.Manifest(w, r, img)
+	if err := serve.Manifest(w, r, img); err != nil {
+		s.error.Printf("ERROR (serve.Manifest): %v", err)
+		serve.Error(w, err)
+		return
+	}
 }
