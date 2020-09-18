@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 )
 
@@ -91,19 +92,40 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := serve.BlobExists(d.Digest); err != nil {
 		s.info.Printf("INFO (serve.BlobExists(%q)): %v", d, err)
+
 		// Blob doesn't exist yet. Try to get the image manifest+layers
 		// and cache them.
-		idx, err := remote.Index(ref)
-		if err != nil {
-			s.error.Printf("ERROR (remote.Index): %v", err)
-			serve.Error(w, err)
-			return
+		switch d.MediaType {
+		case types.DockerManifestList:
+			// If the image is a manifest list, fetch and mirror
+			// the image index.
+			idx, err := remote.Index(ref)
+			if err != nil {
+				s.error.Printf("ERROR (remote.Index): %v", err)
+				serve.Error(w, err)
+				return
+			}
+			if err := serve.Index(w, r, idx); err != nil {
+				s.error.Printf("ERROR (serve.Index): %v", err)
+				serve.Error(w, err)
+				return
+			}
+		case types.DockerManifestSchema2:
+			// If it's a simple image, fetch and mirror its
+			// manifest.
+			img, err := remote.Image(ref)
+			if err != nil {
+				s.error.Printf("ERROR (remote.Image): %v", err)
+				serve.Error(w, err)
+				return
+			}
+			if err := serve.Manifest(w, r, img); err != nil {
+				s.error.Printf("ERROR (serve.Index): %v", err)
+				serve.Error(w, err)
+				return
+			}
 		}
-		if err := serve.Index(w, r, idx); err != nil {
-			s.error.Printf("ERROR (serve.Index): %v", err)
-			serve.Error(w, err)
-			return
-		}
+
 	} else {
 		serve.Blob(w, r, d.Digest.String())
 	}
