@@ -11,6 +11,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/google/go-containerregistry/pkg/v1"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/googleapi"
 )
 
@@ -74,14 +75,20 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex) error {
 	if err != nil {
 		return err
 	}
+	var g errgroup.Group
 	for _, m := range im.Manifests {
-		img, err := idx.Image(m.Digest)
-		if err != nil {
+		m := m
+		g.Go(func() error {
+			img, err := idx.Image(m.Digest)
+			if err != nil {
+				return err
+			}
+			_, err = writeManifest(img)
 			return err
-		}
-		if _, err := writeManifest(img); err != nil {
-			return err
-		}
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	// Write the manifest as a blob.
@@ -125,19 +132,24 @@ func writeManifest(img v1.Image) (*v1.Hash, error) {
 	if err != nil {
 		return nil, err
 	}
+	var g errgroup.Group
 	for _, l := range layers {
-		rc, err := l.Compressed()
-		if err != nil {
-			return nil, err
-		}
-		lh, err := l.Digest()
-		if err != nil {
-			return nil, err
-		}
-		log.Printf("writing layer blob %q", lh)
-		if err := writeBlob(lh, rc, ""); err != nil {
-			return nil, err
-		}
+		l := l
+		g.Go(func() error {
+			rc, err := l.Compressed()
+			if err != nil {
+				return err
+			}
+			lh, err := l.Digest()
+			if err != nil {
+				return err
+			}
+			log.Printf("writing layer blob %q", lh)
+			return writeBlob(lh, rc, "")
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	// Write the manifest as a blob.
