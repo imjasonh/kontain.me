@@ -124,8 +124,11 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 				serve.Error(w, err)
 				return
 			}
+		default:
+			err := fmt.Errorf("unknown media type: %s", d.MediaType)
+			s.error.Printf("ERROR (serveMirrorManifest): %v", err)
+			serve.Error(w, err)
 		}
-
 	} else {
 		serve.Blob(w, r, d.Digest.String())
 	}

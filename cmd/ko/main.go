@@ -16,6 +16,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/ko/pkg/build"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
@@ -74,13 +76,24 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getDefaultBaseImage(string) (v1.Image, error) {
+func getDefaultBaseImage(string) (build.Result, error) {
 	// TODO: memoize
-	ref, err := name.ParseReference("gcr.io/distroless/base", name.WeakValidation)
+	ref, err := name.ParseReference("gcr.io/distroless/static:nonroot", name.WeakValidation)
 	if err != nil {
 		return nil, err
 	}
-	return remote.Image(ref)
+	d, err := remote.Head(ref)
+	if err != nil {
+		return nil, err
+	}
+	switch d.MediaType {
+	case types.DockerManifestList:
+		return remote.Index(ref)
+	case types.DockerManifestSchema2:
+		return remote.Image(ref)
+	default:
+		return nil, fmt.Errorf("unknown media type: %s", d.MediaType)
+	}
 }
 
 // konta.in/ko/github.com/knative/build/cmd/controller -> ko build and serve
@@ -113,21 +126,32 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Error(w, serve.ErrInvalid)
 		return
 	}
+	ip = build.StrictScheme + ip
 	if !g.IsSupportedReference(ip) {
 		s.error.Printf("ERROR (IsSupportedReference): %s", err)
 		serve.Error(w, serve.ErrInvalid)
 		return
 	}
 	s.info.Printf("ko build %s...", ip)
-	img, err := g.Build(context.Background(), ip)
+	br, err := g.Build(context.Background(), ip)
 	if err != nil {
 		s.error.Printf("ERROR (ko build): %s", err)
 		serve.Error(w, serve.ErrInvalid)
 		return
 	}
-	if err := serve.Manifest(w, r, img); err != nil {
-		s.error.Printf("ERROR (serve.Manifest): %v", err)
-		serve.Error(w, err)
+	if idx, ok := br.(v1.ImageIndex); ok {
+		if err := serve.Index(w, r, idx); err != nil {
+			s.error.Printf("ERROR (serve.Index): %v", err)
+			serve.Error(w, err)
+		}
 		return
 	}
+	if img, ok := br.(v1.Image); ok {
+		if err := serve.Manifest(w, r, img); err != nil {
+			s.error.Printf("ERROR (serve.Manifest): %v", err)
+			serve.Error(w, err)
+		}
+		return
+	}
+	serve.Error(w, errors.New("image was not image or index"))
 }

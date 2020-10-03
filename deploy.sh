@@ -47,8 +47,10 @@ case ${1:-"all"} in
     KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/ko && \
     gcloud --project=${project} run deploy ko \
       --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/ko \
-      --memory=2Gi \
+      --memory=4Gi \
+      --cpu=2 \
       --concurrency=1 \
+      --timeout=15m \
       --region=${region} \
       --platform=managed
     ;;
@@ -57,8 +59,10 @@ case ${1:-"all"} in
     KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/buildpack && \
     gcloud --project=${project} run deploy buildpack \
       --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/buildpack \
-      --memory=2Gi \
+      --memory=4Gi \
+      --cpu=2 \
       --concurrency=1 \
+      --timeout=15m \
       --region=${region} \
       --platform=managed
     ;;
@@ -67,7 +71,7 @@ case ${1:-"all"} in
     KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/mirror && \
     gcloud --project=${project} run deploy mirror \
       --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/mirror \
-      --memory=2Gi \
+      --memory=1Gi \
       --region=${region} \
       --platform=managed
     ;;
