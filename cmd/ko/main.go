@@ -178,7 +178,6 @@ func (s *server) getKoYAMLBaseImage(ip string) (string, error) {
 	orig := ip
 	for ; ip != "."; ip = filepath.Dir(ip) {
 		fp := filepath.Join(gopath, "src", ip, ".ko.yaml")
-		s.info.Printf("Looking for %s ...", fp)
 		f, err := os.Open(fp)
 		if os.IsNotExist(err) {
 			// Keep walking.
@@ -186,18 +185,22 @@ func (s *server) getKoYAMLBaseImage(ip string) (string, error) {
 		} else if err != nil {
 			return "", err
 		}
+		defer f.Close()
 
 		s.info.Printf("Found .ko.yaml at %q", fp)
 
 		// .ko.yaml was found, let's try to parse it.
 		var y struct {
+			DefaultBaseImage   string            `yaml:"defaultBaseImage"`
 			BaseImageOverrides map[string]string `yaml:"baseImageOverrides"`
 		}
 		if err := yaml.NewDecoder(f).Decode(&y); err != nil {
 			return "", err
 		}
-		f.Close()
-		return y.BaseImageOverrides[orig], nil
+		if bio, ok := y.BaseImageOverrides[orig]; ok {
+			return bio, nil
+		}
+		return y.DefaultBaseImage, nil
 	}
 	// No .ko.yaml found walking up to repo root.
 	return "", nil
