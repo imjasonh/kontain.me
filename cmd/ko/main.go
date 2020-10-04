@@ -18,9 +18,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	gobuild "go/build"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -31,6 +33,7 @@ import (
 	"github.com/google/ko/pkg/build"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
+	yaml "gopkg.in/yaml.v2"
 )
 
 func main() {
@@ -77,26 +80,6 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getDefaultBaseImage(string) (build.Result, error) {
-	// TODO: memoize
-	ref, err := name.ParseReference("gcr.io/distroless/static:nonroot", name.WeakValidation)
-	if err != nil {
-		return nil, err
-	}
-	d, err := remote.Head(ref)
-	if err != nil {
-		return nil, err
-	}
-	switch d.MediaType {
-	case types.DockerManifestList:
-		return remote.Index(ref)
-	case types.DockerManifestSchema2:
-		return remote.Image(ref)
-	default:
-		return nil, fmt.Errorf("unknown media type: %s", d.MediaType)
-	}
-}
-
 // konta.in/ko/github.com/knative/build/cmd/controller -> ko build and serve
 func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/v2/ko/")
@@ -113,13 +96,13 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Error(w, err)
 		return
 	}
+
 	// TODO: Check image tag for version, resolve branches -> commits and redirect to img:<commit>
 	// TODO: For requests for commit SHAs, check if it's already built and serve that instead.
-	// TODO: Look for $GOPATH/$importPath/.ko.yaml and up, to base image config.
 
 	// ko build the package.
 	g, err := build.NewGo(
-		build.WithBaseImages(getDefaultBaseImage),
+		build.WithBaseImages(s.getBaseImage),
 		build.WithCreationTime(v1.Time{time.Unix(0, 0)}),
 	)
 	if err != nil {
@@ -155,4 +138,67 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	serve.Error(w, errors.New("image was not image or index"))
+}
+
+const defaultBaseImage = "gcr.io/distroless/static:nonroot"
+
+func (s *server) getBaseImage(ip string) (build.Result, error) {
+	ip = strings.TrimPrefix(ip, build.StrictScheme)
+	base, err := s.getKoYAMLBaseImage(ip)
+	if err != nil {
+		return nil, err
+	}
+	if base == "" {
+		base = defaultBaseImage
+	}
+	s.info.Printf("Using base image %q for %s", base, ip)
+
+	ref, err := name.ParseReference(base)
+	if err != nil {
+		return nil, err
+	}
+	d, err := remote.Head(ref)
+	if err != nil {
+		return nil, err
+	}
+	switch d.MediaType {
+	case types.DockerManifestList:
+		s.info.Printf("Base image %q is manifest list", base)
+		return remote.Index(ref)
+	case types.DockerManifestSchema2:
+		s.info.Printf("Base image %q is image", base)
+		return remote.Image(ref)
+	default:
+		return nil, fmt.Errorf("unknown media type: %s", d.MediaType)
+	}
+}
+
+func (s *server) getKoYAMLBaseImage(ip string) (string, error) {
+	gopath := gobuild.Default.GOPATH
+	orig := ip
+	for ; ip != "."; ip = filepath.Dir(ip) {
+		fp := filepath.Join(gopath, "src", ip, ".ko.yaml")
+		s.info.Printf("Looking for %s ...", fp)
+		f, err := os.Open(fp)
+		if os.IsNotExist(err) {
+			// Keep walking.
+			continue
+		} else if err != nil {
+			return "", err
+		}
+
+		s.info.Printf("Found .ko.yaml at %q", fp)
+
+		// .ko.yaml was found, let's try to parse it.
+		var y struct {
+			BaseImageOverrides map[string]string `yaml:"baseImageOverrides"`
+		}
+		if err := yaml.NewDecoder(f).Decode(&y); err != nil {
+			return "", err
+		}
+		f.Close()
+		return y.BaseImageOverrides[orig], nil
+	}
+	// No .ko.yaml found walking up to repo root.
+	return "", nil
 }
