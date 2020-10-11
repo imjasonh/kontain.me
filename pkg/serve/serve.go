@@ -45,6 +45,7 @@ func writeBlob(h v1.Hash, rc io.ReadCloser, contentType string) error {
 		If(storage.Conditions{DoesNotExist: true}).
 		NewWriter(ctx)
 	w.ObjectAttrs.ContentType = contentType
+	w.Metadata = map[string]string{"Docker-Content-Digest": h.String()}
 	if _, err := io.Copy(w, rc); err != nil {
 		if herr, ok := err.(*googleapi.Error); ok && herr.Code == http.StatusPreconditionFailed {
 			return nil
@@ -83,8 +84,7 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex) error {
 			if err != nil {
 				return err
 			}
-			_, err = writeManifest(img)
-			return err
+			return writeManifest(img)
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -107,30 +107,31 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex) error {
 	if err := writeBlob(digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
 	}
+
 	// Redirect to manifest blob.
 	Blob(w, r, digest.String())
 	return nil
 }
 
-func writeManifest(img v1.Image) (*v1.Hash, error) {
+func writeManifest(img v1.Image) error {
 	// Write config blob for later serving.
 	ch, err := img.ConfigName()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	cb, err := img.RawConfigFile()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	log.Printf("writing config blob %q", ch)
 	if err := writeBlob(ch, ioutil.NopCloser(bytes.NewReader(cb)), ""); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Write layer blobs for later serving.
 	layers, err := img.Layers()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var g errgroup.Group
 	for _, l := range layers {
@@ -149,32 +150,36 @@ func writeManifest(img v1.Image) (*v1.Hash, error) {
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Write the manifest as a blob.
 	b, err := img.RawManifest()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	mt, err := img.MediaType()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	digest, err := img.Digest()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err := writeBlob(digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
-		return nil, err
+		return err
 	}
-	return &digest, nil
+	return nil
 }
 
 // Manifest writes config and layer blobs for the image, then writes and
 // redirects to the image manifest contents pointing to those blobs.
 func Manifest(w http.ResponseWriter, r *http.Request, img v1.Image) error {
-	digest, err := writeManifest(img)
+	if err := writeManifest(img); err != nil {
+		return err
+	}
+
+	digest, err := img.Digest()
 	if err != nil {
 		return err
 	}
