@@ -77,13 +77,19 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(path, "/")
 
 	refstr := strings.Join(parts[:len(parts)-2], "/")
+	tagOrDigest := parts[len(parts)-1]
+	if strings.HasPrefix(tagOrDigest, "sha256:") {
+		refstr += "@" + tagOrDigest
+	} else {
+		refstr += ":" + tagOrDigest
+	}
 	for strings.HasPrefix(refstr, "mirror.kontain.me/") {
 		refstr = strings.TrimPrefix(refstr, "mirror.kontain.me/")
 	}
 
 	ref, err := name.ParseReference(refstr)
 	if err != nil {
-		s.error.Printf("ERROR (ParseReference): %v", err)
+		s.error.Printf("ERROR (ParseReference(%q)): %v", refstr, err)
 		serve.Error(w, err)
 		return
 	}
