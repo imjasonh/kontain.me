@@ -30,7 +30,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-const base = "packs/run:v3alpha2"
+const base = "gcr.io/buildpacks/gcp/run:v1"
 
 var (
 	projectRE = regexp.MustCompile("/v1/projects/([a-z0-9-]+)/")
@@ -283,15 +283,27 @@ func (s *server) fetchAndBuild(src, tok string, req *gcb.Build) error {
 			s.error.Printf("Closing GCS log: %v", err)
 		}
 	}()
+
 	for _, cmd := range []string{
 		fmt.Sprintf("mkdir -p /tmp/layers"),
 		fmt.Sprintf("chown -R %d:%d %s", os.Geteuid(), os.Getgid(), src),
 		fmt.Sprintf("chown -R %d:%d /tmp/layers", os.Geteuid(), os.Getgid()),
-		fmt.Sprintf("wget -qO- %s | tar xz -C %s", source, src),
+		fmt.Sprintf("curl -fsSL %s | tar xz --strip-components=1 -C %s", source, src),
+		fmt.Sprintf(`
+mkdir -p ~/.docker/ && cat > ~/.docker/config.json << EOF
+{
+  "auths": {
+    "gcr.io": {
+      "username": "oauth2accesstoken",
+      "password": "%s"
+    }
+  }
+}
+EOF`, tok),
 		fmt.Sprintf("/lifecycle/detector -app=%s -group=/tmp/layers/group.toml -plan=/tmp/layers/plan.toml", src),
-		fmt.Sprintf("/lifecycle/analyzer -layers=/tmp/layers -helpers=false -group=/tmp/layers/group.toml %s", image),
+		fmt.Sprintf("/lifecycle/analyzer -layers=/tmp/layers -group=/tmp/layers/group.toml %s", image),
 		fmt.Sprintf("/lifecycle/builder -layers=/tmp/layers -app=%s -group=/tmp/layers/group.toml -plan=/tmp/layers/plan.toml", src),
-		fmt.Sprintf("/lifecycle/exporter -layers=/tmp/layers -helpers=false -app=%s -image=%s -group=/tmp/layers/group.toml %s", src, base, image),
+		fmt.Sprintf("/lifecycle/exporter -layers=/tmp/layers -app=%s -image=%s -group=/tmp/layers/group.toml %s", src, base, image),
 	} {
 		if err := run.Do(io.MultiWriter(s.info.Writer(), w), cmd); err != nil {
 			return fmt.Errorf("Running %q: %v", cmd, err)
