@@ -112,7 +112,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	ip = build.StrictScheme + ip
 	if !g.IsSupportedReference(ip) {
-		s.error.Printf("ERROR (IsSupportedReference): %s", err)
+		s.error.Printf("ERROR (IsSupportedReference(%q)): false", ip)
 		serve.Error(w, serve.ErrInvalid)
 		return
 	}

@@ -75,7 +75,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/v2/")
 	parts := strings.Split(path, "/")
-	ref, err := name.ParseReference(strings.Join(parts[:len(parts)-2], "/"))
+
+	refstr := strings.Join(parts[:len(parts)-2], "/")
+	for strings.HasPrefix(refstr, "mirror.kontain.me/") {
+		refstr = strings.TrimPrefix(refstr, "mirror.kontain.me/")
+	}
+
+	ref, err := name.ParseReference(refstr)
 	if err != nil {
 		s.error.Printf("ERROR (ParseReference): %v", err)
 		serve.Error(w, err)
@@ -86,12 +92,12 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	// blob.
 	d, err := remote.Head(ref)
 	if err != nil {
-		s.error.Printf("ERROR (remote.Head): %v", err)
+		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
 		serve.Error(w, err)
 		return
 	}
 	if err := serve.BlobExists(d.Digest); err != nil {
-		s.info.Printf("INFO (serve.BlobExists(%q)): %v", d, err)
+		s.info.Printf("INFO (serve.BlobExists(%q)): %v", d.Digest, err)
 
 		// Blob doesn't exist yet. Try to get the image manifest+layers
 		// and cache them.
