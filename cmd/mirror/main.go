@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/imjasonh/kontain.me/pkg/serve"
@@ -94,12 +95,34 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If it's a HEAD request, and request was by digest, and we have that
+	// manifest mirrored by digest already, serve HEAD response from GCS.
+	// If it's a HEAD request and the other conditions aren't met, we'll
+	// handle this later by consulting the real registry.
+	if r.Method == http.MethodHead {
+		if d, ok := ref.(name.Digest); ok {
+			h, err := v1.NewHash(d.DigestStr())
+			if err != nil {
+				s.error.Printf("ERROR(NewHash(%q): %v", d.DigestStr(), err)
+			}
+			if err := serve.BlobExists(h); err == nil {
+				// TODO: serve HEAD response from GCS.
+			}
+		}
+	}
+
 	// Get the original image's digest, and check if we have that manifest
 	// blob.
 	d, err := remote.Head(ref)
 	if err != nil {
 		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
 		serve.Error(w, err)
+		return
+	}
+	if r.Method == http.MethodHead {
+		w.Header().Set("Docker-Content-Digest", d.Digest.String())
+		w.Header().Set("Content-Type", string(d.MediaType))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", d.Size))
 		return
 	}
 	if err := serve.BlobExists(d.Digest); err != nil {
