@@ -15,7 +15,7 @@ var (
 
 func Error(w http.ResponseWriter, err error) {
 	code := "INTERNAL_ERROR"
-	httpCode := http.StatusInternalServerError
+	httpCode := http.StatusNotFound
 	if terr, ok := err.(*transport.Error); ok {
 		http.Error(w, "", terr.StatusCode)
 		json.NewEncoder(w).Encode(terr.Errors)
@@ -24,7 +24,6 @@ func Error(w http.ResponseWriter, err error) {
 
 	if err == ErrNotFound {
 		code = "MANIFEST_UNKNOWN"
-		httpCode = http.StatusNotFound
 	} else if err == ErrInvalid {
 		code = "NAME_INVALID"
 		httpCode = http.StatusBadRequest
