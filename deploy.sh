@@ -5,74 +5,55 @@ set -euxo pipefail
 project=kontainme
 region=us-central1
 
-case ${1:-"all"} in
+function deploy(){
+    service=$1
+    memory=${2:-1Gi}
+    cpu=${3:-1}
+    concurrency=${4:-80}
+    timeout=${5:-5m}
 
-  viz | all)
+    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/${service} && \
+    gcloud --project=${project} run deploy ${service} \
+      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/${service} \
+      --memory=${memory} \
+      --cpu=${cpu} \
+      --concurrency=${concurrency} \
+      --timeout=${timeout} \
+      --region=${region} \
+      --platform=managed
+}
+
+function deploy_api()       { deploy api       2Gi 1 1 5m  ;}
+function deploy_app()       { deploy app                   ;}
+function deploy_buildpack() { deploy buildpack 4Gi 2 1 15m ;}
+function deploy_ko()        { deploy ko        4Gi 2 1 15m ;}
+function deploy_mirror()    { deploy mirror                ;}
+function deploy_random()    { deploy random                ;}
+function deploy_viz()       { deploy viz                   ;}
+
+function build_viz_base() {
     docker build -t gcr.io/${project}/graphviz -f cmd/viz/Dockerfile cmd/viz/
     docker push gcr.io/${project}/graphviz
-    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/viz && \
-    gcloud --project=${project} run deploy viz \
-      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/viz \
-      --region=${region} \
-      --platform=managed
+}
+
+case ${1:-"all"} in
+  api)       deploy_api;;
+  app)       deploy_app;;
+  buildpack) deploy_buildpack;;
+  ko)        deploy_ko;;
+  mirror)    deploy_mirror;;
+  random)    deploy_random;;
+  viz)       deploy_viz;;
+  viz_base)  build_viz_base; deploy_viz;;
+
+  all)
+    deploy_api
+    deploy_app
+    deploy_buildpack
+    deploy_ko
+    deploy_mirror
+    deploy_random
+    build_viz_base; deploy_viz
     ;;
 
-  api | all)
-    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/api && \
-    gcloud --project=${project} run deploy api \
-      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/api \
-      --memory=2Gi \
-      --concurrency=1 \
-      --region=${region} \
-      --platform=managed
-    ;;
-
-  app | all)
-    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/app && \
-    gcloud --project=${project} run deploy app \
-      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/app \
-      --region=${region} \
-      --platform=managed
-    ;;
-
-  random | all)
-    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/random && \
-    gcloud --project=${project} run deploy random \
-      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/random \
-      --region=${region} \
-      --platform=managed
-    ;;
-
-  ko | all)
-    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/ko && \
-    gcloud --project=${project} run deploy ko \
-      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/ko \
-      --memory=4Gi \
-      --cpu=2 \
-      --concurrency=1 \
-      --timeout=15m \
-      --region=${region} \
-      --platform=managed
-    ;;
-
-  buildpack | all)
-    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/buildpack && \
-    gcloud --project=${project} run deploy buildpack \
-      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/buildpack \
-      --memory=4Gi \
-      --cpu=2 \
-      --concurrency=1 \
-      --timeout=15m \
-      --region=${region} \
-      --platform=managed
-    ;;
-
-  mirror | all)
-    KO_DOCKER_REPO=gcr.io/${project} ko publish -P ./cmd/mirror && \
-    gcloud --project=${project} run deploy mirror \
-      --image=gcr.io/${project}/github.com/imjasonh/kontain.me/cmd/mirror \
-      --memory=1Gi \
-      --region=${region} \
-      --platform=managed
-    ;;
 esac
