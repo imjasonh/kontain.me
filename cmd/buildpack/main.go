@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,6 +22,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/google/go-github/v32/github"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 	"golang.org/x/oauth2/google"
@@ -113,16 +114,13 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 
 	// Determine source repo and revision.
 	parts := strings.Split(r.URL.Path, "/")
-	repo := strings.Join(parts[2:4], "/")
+	if len(parts) < 4 {
+		serve.Error(w, errors.New("Must specify GitHub repository"))
+		return
+	}
+	ghOwner, ghRepo := parts[2], parts[3]
 	path := strings.Join(parts[4:len(parts)-2], "/")
 	revision := parts[len(parts)-1]
-	if revision == "latest" {
-		revision = "master"
-	}
-	if repo == "" || repo == "buildpack" {
-		repo = "googlecloudplatform/buildpack-samples"
-		path = "sample-go"
-	}
 
 	// If the image tag looks like a commit SHA, see if we already have a
 	// manifest cached for that revision and serve it directly.  Otherwise,
@@ -135,7 +133,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	} else {
-		revision, err = s.resolveCommit(repo, revision)
+		revision, err = s.resolveCommit(ghOwner, ghRepo, revision)
 		if err != nil {
 			s.error.Println("ERROR(resolveCommit):", err)
 			serve.Error(w, err)
@@ -147,7 +145,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Fetch, detect and build source.
-	image, err := s.fetchAndBuild(src, layers, repo, revision, path)
+	image, err := s.fetchAndBuild(src, layers, ghOwner, ghRepo, revision, path)
 	if err != nil {
 		s.error.Println("ERROR:", err)
 		serve.Error(w, err)
@@ -203,25 +201,37 @@ func (s *server) putCachedManifest(revision, path string, manifest []byte) {
 }
 
 // Resolves a ref (branch, tag, PR, commit) into its SHA.
-// https://developer.github.com/v3/repos/commits/#get-the-sha-1-of-a-commit-reference
-func (s *server) resolveCommit(repo, ref string) (string, error) {
-	url := fmt.Sprintf("https://api.github.com/repos/%s/commits/%s", repo, ref)
-	resp, err := http.Get(url) // TODO: cache this lookup?
+// If the image tag is "latest", use the repo's default branch.
+// If the image tag is "latest-release", look up the repo's latest release tag.
+// In any case, resolve the branch/tag/whatever to a commit SHA.
+func (s *server) resolveCommit(owner, repo, ref string) (string, error) {
+	ctx := context.Background()
+	client := github.NewClient(nil)
+
+	if ref == "latest" {
+		repo, _, err := client.Repositories.Get(ctx, owner, repo)
+		if err != nil {
+			return "", err
+		}
+		ref = repo.GetDefaultBranch()
+	}
+	if ref == "latest-release" {
+		release, resp, err := client.Repositories.GetLatestRelease(ctx, owner, repo)
+		if resp.StatusCode == http.StatusNotFound {
+			return "", errors.New("Repository has no releases")
+		}
+		if err != nil {
+			return "", err
+		}
+		ref = release.GetTagName()
+	}
+
+	commit, _, err := client.Repositories.GetCommit(ctx, owner, repo, ref)
 	if err != nil {
 		return "", err
 	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Error resolving %q (%d): %v", url, resp.StatusCode, resp.Status)
-	}
-	defer resp.Body.Close()
-	var r struct {
-		SHA string `json:"sha"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
-		return "", err
-	}
-	s.info.Printf("Resolved %q -> %q\n", ref, r.SHA)
-	return r.SHA, nil
+	s.info.Printf("Resolved %q -> %q\n", ref, commit.GetSHA())
+	return commit.GetSHA(), nil
 }
 
 func (s *server) prepareWorkspace() (string, string, error) {
@@ -247,9 +257,9 @@ func (s *server) prepareWorkspace() (string, string, error) {
 	return src, layers, nil
 }
 
-func (s *server) fetchAndBuild(src, layers, repo, revision, path string) (string, error) {
+func (s *server) fetchAndBuild(src, layers, ghOwner, ghRepo, revision, path string) (string, error) {
 	image := fmt.Sprintf("gcr.io/%s/built-%d", projectID, time.Now().Unix)
-	source := fmt.Sprintf("https://github.com/%s/archive/%s.tar.gz", repo, revision)
+	source := fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", ghOwner, ghRepo, revision)
 
 	if resp, err := http.Head(source); err != nil {
 		return "", err
