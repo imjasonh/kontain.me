@@ -8,25 +8,15 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
-var (
-	ErrNotFound = errors.New("repository or commit not found")
-	ErrInvalid  = errors.New("requested manifest is invalid")
-)
+var ErrNotFound = errors.New("repository or commit not found")
 
 func Error(w http.ResponseWriter, err error) {
-	code := "INTERNAL_ERROR"
+	code := "MANIFEST_UNKNOWN"
 	httpCode := http.StatusNotFound
 	if terr, ok := err.(*transport.Error); ok {
 		http.Error(w, "", terr.StatusCode)
 		json.NewEncoder(w).Encode(terr.Errors)
 		return
-	}
-
-	if err == ErrNotFound {
-		code = "MANIFEST_UNKNOWN"
-	} else if err == ErrInvalid {
-		code = "NAME_INVALID"
-		httpCode = http.StatusBadRequest
 	}
 
 	http.Error(w, "", httpCode)

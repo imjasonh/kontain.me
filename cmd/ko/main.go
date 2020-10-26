@@ -76,29 +76,30 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(path, "/manifests/"):
 		s.serveKoManifest(w, r)
 	default:
-		serve.Error(w, serve.ErrNotFound)
+		http.Error(w, "Not found", http.StatusNotFound)
 	}
 }
 
-// konta.in/ko/github.com/knative/build/cmd/controller -> ko build and serve
+// ko.kontain.me/github.com/knative/build/cmd/controller -> ko build and serve
 func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/v2/ko/")
+	path := strings.TrimPrefix(r.URL.Path, "/v2/")
+	path = strings.TrimPrefix(path, "ko/") // To handle legacy behavior.
 	parts := strings.Split(path, "/")
 	ip := strings.Join(parts[:len(parts)-2], "/")
 
+	// "go get" the package
 	tag := parts[len(parts)-1]
 	s.info.Printf("requested image tag :%s", tag)
 
 	// go get the package.
+	// TODO: Check image tag for version, resolve branches -> commits and redirect to img:<commit>
+	// TODO: For requests for commit SHAs, check if it's already built and serve that instead.
 	s.info.Printf("go get %s...", ip)
 	if err := run.Do(s.info.Writer(), fmt.Sprintf("go get %s", ip)); err != nil {
 		s.error.Printf("ERROR (go get): %s", err)
 		serve.Error(w, err)
 		return
 	}
-
-	// TODO: Check image tag for version, resolve branches -> commits and redirect to img:<commit>
-	// TODO: For requests for commit SHAs, check if it's already built and serve that instead.
 
 	// ko build the package.
 	g, err := build.NewGo(
@@ -107,20 +108,20 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		s.error.Printf("ERROR (build.NewGo): %s", err)
-		serve.Error(w, serve.ErrInvalid)
+		serve.Error(w, err)
 		return
 	}
 	ip = build.StrictScheme + ip
 	if !g.IsSupportedReference(ip) {
 		s.error.Printf("ERROR (IsSupportedReference(%q)): false", ip)
-		serve.Error(w, serve.ErrInvalid)
+		serve.Error(w, fmt.Errorf("Import path %q is not package main", ip))
 		return
 	}
 	s.info.Printf("ko build %s...", ip)
 	br, err := g.Build(context.Background(), ip)
 	if err != nil {
 		s.error.Printf("ERROR (ko build): %s", err)
-		serve.Error(w, serve.ErrInvalid)
+		serve.Error(w, err)
 		return
 	}
 	if idx, ok := br.(v1.ImageIndex); ok {
