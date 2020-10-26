@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	"cloud.google.com/go/datastore"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/imjasonh/kontain.me/pkg/run"
@@ -35,6 +36,8 @@ func init() {
 		log.Fatalf("metadata.ProjectID: %v", err)
 	}
 }
+
+var commitRE = regexp.MustCompile("[a-f0-9]{40}")
 
 const base = "packs/run:v3alpha2"
 
@@ -121,19 +124,25 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 		path = "sample-go"
 	}
 
-	// Resolve branch/tag/whatever -> SHA
-	revision, err = s.resolveCommit(repo, revision)
-	if err != nil {
-		s.error.Println("ERROR(resolveCommit):", err)
-		serve.Error(w, err)
-		return
-	}
-
-	// Check whether we have a cached manfiest for this revision.
-	// If we do, just serve it.
-	if b := s.checkCachedManifest(revision, path); len(b) != 0 {
-		w.Header().Set("Content-Type", string(types.DockerManifestSchema2)) // TODO: don't hard-code
-		io.Copy(w, bytes.NewReader(b))
+	// If the image tag looks like a commit SHA, see if we already have a
+	// manifest cached for that revision and serve it directly.  Otherwise,
+	// resolve the branch/tag/whatever to a SHA and redirect to that SHA
+	// image tag.
+	if commitRE.MatchString(revision) {
+		if b := s.checkCachedManifest(revision, path); len(b) != 0 {
+			w.Header().Set("Content-Type", string(types.DockerManifestSchema2)) // TODO: don't hard-code
+			io.Copy(w, bytes.NewReader(b))
+			return
+		}
+	} else {
+		revision, err = s.resolveCommit(repo, revision)
+		if err != nil {
+			s.error.Println("ERROR(resolveCommit):", err)
+			serve.Error(w, err)
+			return
+		}
+		path := r.URL.Path[:strings.LastIndex(r.URL.Path, "/")+1] + revision
+		http.Redirect(w, r, path, http.StatusSeeOther)
 		return
 	}
 
@@ -201,9 +210,7 @@ func (s *server) resolveCommit(repo, ref string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if resp.StatusCode == http.StatusNotFound {
-		return "", serve.ErrNotFound
-	} else if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("Error resolving %q (%d): %v", url, resp.StatusCode, resp.Status)
 	}
 	defer resp.Body.Close()
