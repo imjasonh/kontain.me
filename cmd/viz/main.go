@@ -11,7 +11,7 @@ import (
 
 	humanize "github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/tmc/dot"
 )
@@ -166,7 +166,7 @@ func getLayers(ref name.Reference) ([]v1.Descriptor, error) {
 }
 
 func graphviz(in io.Reader, out io.Writer) error {
-	cmd := exec.Command("dot", "-Tsvg")
+	cmd := exec.Command("/bin/dot", "-Tsvg")
 	cmd.Stdin = in
 	cmd.Stdout = out
 	return cmd.Run()

@@ -31,11 +31,6 @@ function deploy_mirror()    { deploy mirror                ;}
 function deploy_random()    { deploy random                ;}
 function deploy_viz()       { deploy viz                   ;}
 
-function build_viz_base() {
-    docker build -t gcr.io/${project}/graphviz -f cmd/viz/Dockerfile cmd/viz/
-    docker push gcr.io/${project}/graphviz
-}
-
 case ${1:-"all"} in
   api)       deploy_api;;
   app)       deploy_app;;
@@ -44,7 +39,6 @@ case ${1:-"all"} in
   mirror)    deploy_mirror;;
   random)    deploy_random;;
   viz)       deploy_viz;;
-  viz_base)  build_viz_base; deploy_viz;;
 
   all)
     deploy_api
@@ -53,7 +47,7 @@ case ${1:-"all"} in
     deploy_ko
     deploy_mirror
     deploy_random
-    build_viz_base; deploy_viz
+    deploy_viz
     ;;
 
 esac
