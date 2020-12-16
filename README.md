@@ -9,6 +9,25 @@ You can request a specific size and shape of random image. For example,
 `random.kontain.me/random:4x100` generates a random image of 4 layers of 100
 random bytes each.
 
+# `mirror.kontain.me`
+
+`docker pull mirror.kontain.me/[image]` will pull the an image (if it can) and
+cache the manifest and layers. Subsequent pulls will, if possible, serve from
+the cache.
+
+This acts as a simple [registry
+mirror](https://docs.docker.com/registry/recipes/mirror/) which can reduce the
+number of pulls from the original registry, in case they impose request limits
+or exorbitant bandwidth costs or latencies.
+
+# `flatten.kontain.me`
+
+`docker pull flatten.kontain.me/[image]` will pull an image (if it can), then
+flatten its layers into a single layer.</p>
+
+_Flattening images obviates image layer caching, so it's often not an
+optimization._
+
 # `ko.kontain.me`
 
 `docker pull ko.kontain.me/ko/[import path]` serves an image
@@ -28,17 +47,6 @@ Buildpacks](https://buildpacks.io)
 For example, `docker pull
 buildpack.kontain.me/buildpack/sample-java-app:b032838` fetches, builds and
 serves a [sample Java app](https://github.com/buildpack/sample-java-app).
-
-# `mirror.kontain.me`
-
-`docker pull mirror.kontain.me/[image]` will pull the an image (if it can) and
-cache the manifest and layers. Subsequent pulls will, if possible, serve from
-the cache.
-
-This acts as a simple [registry
-mirror](https://docs.docker.com/registry/recipes/mirror/) which can reduce the
-number of pulls from the original registry, in case they impose request limits
-or exorbitant bandwidth costs or latencies.
 
 # Caveats
 
