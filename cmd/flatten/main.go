@@ -23,10 +23,12 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 )
 
@@ -98,32 +100,89 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO: remote.Head(ref) and check for blobs/{digest}-flattened to
-	// serve that instead.
-	// TODO: support manifest lists.
+	// serve that instead. This depends on serve.Manifest being able to
+	// write to -flattened.
 
-	img, err := remote.Image(ref)
+	// Determine whether the ref is for an image or index.
+	d, err := remote.Head(ref)
 	if err != nil {
-		s.error.Printf("ERROR (remote.Image): %v", err)
+		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
 		serve.Error(w, err)
 		return
 	}
 
-	l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return mutate.Extract(img), nil })
-	if err != nil {
-		s.error.Printf("ERROR (tarball.LayerFromOpener): %v", err)
-		serve.Error(w, err)
-		return
-	}
-	fimg, err := mutate.AppendLayers(empty.Image, l)
-	if err != nil {
-		s.error.Printf("ERROR (mutate.AppendLayers): %v", err)
-		serve.Error(w, err)
-		return
-	}
+	switch d.MediaType {
+	case types.DockerManifestList:
+		idx, err := remote.Index(ref)
+		if err != nil {
+			s.error.Printf("ERROR (remote.Index): %v", err)
+			serve.Error(w, err)
+			return
+		}
+		im, err := idx.IndexManifest()
+		if err != nil {
+			s.error.Printf("ERROR (index.IndexManifest): %v", err)
+			serve.Error(w, err)
+			return
+		}
+		// Flatten each image in the manifest.
+		var fidx v1.ImageIndex = empty.Index
+		for _, m := range im.Manifests {
+			img, err := idx.Image(m.Digest)
+			if err != nil {
+				s.error.Printf("ERROR (idx.Image): %v", err)
+				serve.Error(w, err)
+				return
+			}
+			l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return mutate.Extract(img), nil })
+			if err != nil {
+				s.error.Printf("ERROR (tarball.LayerFromOpener): %v", err)
+				serve.Error(w, err)
+				return
+			}
+			fimg, err := mutate.AppendLayers(empty.Image, l)
+			if err != nil {
+				s.error.Printf("ERROR (mutate.AppendLayers): %v", err)
+				serve.Error(w, err)
+				return
+			}
+			fidx = mutate.AppendManifests(fidx, mutate.IndexAddendum{Add: fimg})
+		}
+		if err := serve.Index(w, r, fidx); err != nil {
+			s.error.Printf("ERROR (serve.Index): %v", err)
+			serve.Error(w, err)
+			return
+		}
 
-	if err := serve.Manifest(w, r, fimg); err != nil {
-		s.error.Printf("ERROR (serve.Manifest): %v", err)
+	case types.DockerManifestSchema2:
+		img, err := remote.Image(ref)
+		if err != nil {
+			s.error.Printf("ERROR (remote.Image): %v", err)
+			serve.Error(w, err)
+			return
+		}
+
+		l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return mutate.Extract(img), nil })
+		if err != nil {
+			s.error.Printf("ERROR (tarball.LayerFromOpener): %v", err)
+			serve.Error(w, err)
+			return
+		}
+		fimg, err := mutate.AppendLayers(empty.Image, l)
+		if err != nil {
+			s.error.Printf("ERROR (mutate.AppendLayers): %v", err)
+			serve.Error(w, err)
+			return
+		}
+
+		if err := serve.Manifest(w, r, fimg); err != nil {
+			s.error.Printf("ERROR (serve.Manifest): %v", err)
+			serve.Error(w, err)
+			return
+		}
+	default:
+		err := fmt.Errorf("unknown media type: %s", d.MediaType)
+		s.error.Printf("ERROR (serveMirrorManifest): %v", err)
 		serve.Error(w, err)
-		return
 	}
 }
