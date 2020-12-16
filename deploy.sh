@@ -27,6 +27,7 @@ function deploy(){
 function deploy_api()       { deploy api       2Gi 1 1 5m  ;}
 function deploy_app()       { deploy app                   ;}
 function deploy_buildpack() { deploy buildpack 4Gi 2 1 15m ;}
+function deploy_flatten()   { deploy flatten               ;}
 function deploy_ko()        { deploy ko        4Gi 2 1 15m ;}
 function deploy_mirror()    { deploy mirror                ;}
 function deploy_random()    { deploy random                ;}
@@ -36,6 +37,7 @@ case ${1:-"all"} in
   api)       deploy_api;;
   app)       deploy_app;;
   buildpack) deploy_buildpack;;
+  flatten)   deploy_flatten;;
   ko)        deploy_ko;;
   mirror)    deploy_mirror;;
   random)    deploy_random;;
@@ -45,6 +47,7 @@ case ${1:-"all"} in
     deploy_api
     deploy_app
     deploy_buildpack
+    deploy_flatten
     deploy_ko
     deploy_mirror
     deploy_random
