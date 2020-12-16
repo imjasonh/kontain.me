@@ -20,7 +20,8 @@ function deploy(){
       --concurrency=${concurrency} \
       --timeout=${timeout} \
       --region=${region} \
-      --platform=managed
+      --platform=managed \
+      --max-instances=3 # cost control
 }
 
 function deploy_api()       { deploy api       2Gi 1 1 5m  ;}
