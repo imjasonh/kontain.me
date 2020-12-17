@@ -41,7 +41,7 @@ func main() {
 		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
 		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
 	})
-	http.Handle("/", http.RedirectHandler("https://kontain.me", http.StatusMovedPermanently))
+	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/master/cmd/ko", http.StatusSeeOther))
 
 	log.Println("Starting...")
 	port := os.Getenv("PORT")

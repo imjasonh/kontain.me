@@ -1,52 +1,16 @@
 **kontain.me** serves Docker container images generated on-demand at the
 time they are requested.
 
-# `random.kontain.me`
+These include:
 
-`docker pull random.kontain.me/random:latest` serves an image containing random
-data. By default the image contains one layer containing 10 MB of random bytes.
-You can request a specific size and shape of random image. For example,
-`random.kontain.me/random:4x100` generates a random image of 4 layers of 100
-random bytes each.
-
-# `mirror.kontain.me`
-
-`docker pull mirror.kontain.me/[image]` will pull the an image (if it can) and
-cache the manifest and layers. Subsequent pulls will, if possible, serve from
-the cache.
-
-This acts as a simple [registry
-mirror](https://docs.docker.com/registry/recipes/mirror/) which can reduce the
-number of pulls from the original registry, in case they impose request limits
-or exorbitant bandwidth costs or latencies.
-
-# `flatten.kontain.me`
-
-`docker pull flatten.kontain.me/[image]` will pull an image (if it can), then
-flatten its layers into a single layer.</p>
-
-_Flattening images obviates image layer caching, so it's often not an
-optimization._
-
-# `ko.kontain.me`
-
-`docker pull ko.kontain.me/ko/[import path]` serves an image
-containing a Go binary fetched using `go get` and built into a
-container image using [ko](https://github.com/google/ko).
-
-For example, `docker pull ko.kontain.me/ko/github.com/google/ko/cmd/ko` will
-fetch, build and (eventually) serve a Docker image containing `ko` itself.
-_Koception!_
-
-# `buildpack.kontain.me`
-
-`docker pull buildpack.kontain.me/[ghuser]/[ghrepo]:[revision]` serves an image
-fetched from source on GitHub and built using [CNCF
-Buildpacks](https://buildpacks.io)
-
-For example, `docker pull
-buildpack.kontain.me/buildpack/sample-java-app:b032838` fetches, builds and
-serves a [sample Java app](https://github.com/buildpack/sample-java-app).
+* [`random.kontain.me`](./cmd/random), which serves randomly-generated images.
+* [`mirror.kontain.me`](./cmd/mirror), which pulls and caches images from other registries.
+* [`flatten.kontain.me`](./cmd/flatten), which pulls and flattens images from other registries,
+  so they contain only one layer.
+* [`ko.kontain.me`](./cmd/ko), which builds a Go binary into a container image using
+  [`ko`](https://github.com/google/ko).
+* [`buildpack.kontain.me`](./cmd/buildpack), which builds a GitHub repo using [CNCF
+  Buildpacks](https://buildpacks.io).
 
 # Caveats
 
