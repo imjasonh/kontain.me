@@ -12,6 +12,9 @@ These include:
 * [`buildpack.kontain.me`](./cmd/buildpack), which builds a GitHub repo using [CNCF
   Buildpacks](https://buildpacks.io).
 
+This repo also serves [`viz.kontain.me`](./cmd/viz), which visualizes shared
+image layers using [Graphviz](https://graphviz.org/).
+
 # Caveats
 
 * The registry does not accept pushes.
@@ -22,12 +25,11 @@ These include:
 # How it works
 
 The service is implemented using [Google Cloud
-Run](https://cloud.google.com/run), with a [custom domain
-mapping](https://cloud.google.com/run/docs/mapping-custom-domains) to
-https://kontain.me which provides a managed SSL certificate.
+Run](https://cloud.google.com/run).
 
-When the service receives a request for an image manifest, it parses the request
-and generates layers for the requested image, writing the blobs to [Google Cloud
-Storage](https://cloud.google.com/storage/). After it receives the manifest,
-`docker pull` fetches the blobs. The app simply redirects to Cloud Storage to
-serve the blobs. Blobs are deleted after 10 days.
+When the service receives a request for an image manifest, it parses the
+request and generates layers for the requested image, writing the blobs to
+[Google Cloud Storage](https://cloud.google.com/storage/). After it receives
+the manifest, `docker pull` fetches the blobs. The app simply redirects to
+Cloud Storage to serve the blobs. Blobs are deleted after 24 hours and would be
+rebuilt on the next request.
