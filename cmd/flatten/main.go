@@ -70,14 +70,14 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		digest := parts[len(parts)-1]
 		serve.Blob(w, r, digest)
 	case strings.Contains(path, "/manifests/"):
-		s.serveMirrorManifest(w, r)
+		s.serveFlattenManifest(w, r)
 	default:
 		serve.Error(w, serve.ErrNotFound)
 	}
 }
 
-// mirror.kontain.me/ubuntu -> mirror ubuntu and serve
-func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
+// flatten.kontain.me/ubuntu -> flatten ubuntu and serve
+func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/v2/")
 	parts := strings.Split(path, "/")
 
@@ -182,7 +182,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	default:
 		err := fmt.Errorf("unknown media type: %s", d.MediaType)
-		s.error.Printf("ERROR (serveMirrorManifest): %v", err)
+		s.error.Printf("ERROR (serveFlattenManifest): %v", err)
 		serve.Error(w, err)
 	}
 }
