@@ -14,10 +14,10 @@ These include:
 
 # Caveats
 
-The registry does not accept pushes and does not handle requests for images
-by digest. This is a silly hack and probably isn't stable. Don't rely on it for
-anything serious. It could probably do a lot of smart things to be a lot
-faster.
+* The registry does not accept pushes.
+* This is a silly hack and probably isn't stable. Don't rely on it for anything
+  serious.
+*  It could probably do a lot of smart things to be a lot faster. 🤷
 
 # How it works
 
