@@ -8,14 +8,15 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 
 	"cloud.google.com/go/storage"
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/googleapi"
 )
 
-const bucket = "kontainme"
+var bucket = os.Getenv("BUCKET")
 
 func Blob(w http.ResponseWriter, r *http.Request, digest string) {
 	url := fmt.Sprintf("https://storage.googleapis.com/%s/blobs/%s", bucket, digest)
