@@ -15,12 +15,12 @@ provider "google" {
 
 ////// Variables
 
-variable "image-prefix" {
+variable "project" {
   type    = string
-  default = "gcr.io/kontaindotme/github.com/imjasonh/kontain.me/cmd/"
+  default = "kontaindotme"
 }
 
-variable "project" {
+variable "bucket" {
   type    = string
   default = "kontaindotme"
 }
@@ -30,9 +30,9 @@ variable "region" {
   default = "us-central1"
 }
 
-variable "bucket" {
-  type    = string
-  default = "kontaindotme"
+variable "images" {
+  type        = map(string)
+  description = "images to deploy"
 }
 
 variable "services" {
@@ -43,64 +43,13 @@ variable "services" {
     timeout     = string
   }))
   description = "services to deploy"
-
-  default = {
-    "api" = {
-      memory      = "2Gi"
-      cpu         = "1"
-      concurrency = "1"
-      timeout     = "300" # 5m
-    }
-    "buildpack" = {
-      memory      = "4Gi"
-      cpu         = "2"
-      concurrency = "1"
-      timeout     = "900" # 15m
-    }
-    "flatten" = {
-      memory      = "1Gi"
-      cpu         = "1"
-      concurrency = "80"
-      timeout     = "60" # 1m
-    }
-    "ko" = {
-      memory      = "4Gi"
-      cpu         = "2"
-      concurrency = "1"
-      timeout     = "900" # 15m
-    }
-    "mirror" = {
-      memory      = "1Gi"
-      cpu         = "1"
-      concurrency = "80"
-      timeout     = "60" # 1m
-    }
-    "random" = {
-      memory      = "1Gi"
-      cpu         = "1"
-      concurrency = "80"
-      timeout     = "60" # 1m
-    }
-    "viz" = {
-      memory      = "1Gi"
-      cpu         = "1"
-      concurrency = "80"
-      timeout     = "60" # 1m
-    }
-    "flatten" = {
-      memory      = "1Gi"
-      cpu         = "1"
-      concurrency = "80"
-      timeout     = "60" # 1m
-    }
-  }
 }
 
 ////// Cloud Storage
 
 resource "google_storage_bucket" "bucket" {
-  name          = var.bucket
-  location      = "US"
+  name     = var.bucket
+  location = "US"
 
   uniform_bucket_level_access = false
 
@@ -134,7 +83,7 @@ resource "google_cloud_run_service" "services" {
     spec {
       timeout_seconds = each.value.timeout
       containers {
-        image = "${var.image-prefix}${each.key}"
+        image = var.images[each.key]
         env {
           name  = "BUCKET"
           value = var.bucket
@@ -142,7 +91,7 @@ resource "google_cloud_run_service" "services" {
         resources {
           limits = {
             memory = each.value.memory
-            cpu = each.value.cpu
+            cpu    = each.value.cpu
           }
         }
       }
@@ -168,6 +117,8 @@ resource "google_cloud_run_service_iam_member" "allUsers" {
 
   depends_on = [google_cloud_run_service.services]
 }
+
+// TODO: Ensure domain mappings.
 
 output "services" {
   value = {
