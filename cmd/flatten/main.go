@@ -146,7 +146,10 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 				serve.Error(w, err)
 				return
 			}
-			fidx = mutate.AppendManifests(fidx, mutate.IndexAddendum{Add: fimg})
+			fidx = mutate.AppendManifests(fidx, mutate.IndexAddendum{
+				Add:        fimg,
+				Descriptor: m,
+			})
 		}
 		if err := serve.Index(w, r, fidx); err != nil {
 			s.error.Printf("ERROR (serve.Index): %v", err)
