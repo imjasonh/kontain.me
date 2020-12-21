@@ -3,8 +3,16 @@
 `docker pull random.kontain.me/random:latest` serves an image containing random
 data.
 
-By default the image contains one layer containing 10 MB of random bytes.
-You can request a specific size and shape of random image.
+## Examples
 
-For example, `random.kontain.me/random:4x100` generates a random image of 4
-layers of 100 random bytes each.
+Pull a random image with one 10-megabyte layer:
+
+```
+docker pull random.kontain.me/random
+```
+
+Pull a random image with four ten-byte layers:
+
+```
+docker pull random.kontain.me/random:4x10
+```
