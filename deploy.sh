@@ -9,6 +9,7 @@ echo writing to $out
 
 echo "images = {" > $out
 cd cmd
+export KO_CONFIG_PATH=../
 for d in *;  do
 	echo "  \"$d\" = \"$(ko publish -P ./$d)\"" >> $out
 done
