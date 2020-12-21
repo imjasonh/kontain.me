@@ -17,9 +17,9 @@ import (
 
 	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/datastore"
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	gauthn "github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/go-github/v32/github"
@@ -313,5 +313,9 @@ func (s *server) getImage(image string) (v1.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	return remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	authn, err := gauthn.NewEnvAuthenticator()
+	if err != nil {
+		return nil, err
+	}
+	return remote.Image(ref, remote.WithAuth(authn))
 }
