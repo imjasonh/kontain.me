@@ -286,8 +286,8 @@ mkdir -p ~/.docker/ && cat > ~/.docker/config.json << EOF
 EOF`, tok.AccessToken),
 		fmt.Sprintf(`
 /kaniko/executor --force \
-  --dockerfile=%s/Dockerfile \
-  --context=%s \
+  --dockerfile=./%s/Dockerfile \
+  --context=./%s \
   --destination=%s \
   --cache-repo=gcr.io/%s`, path, path, image, projectID),
 	} {
