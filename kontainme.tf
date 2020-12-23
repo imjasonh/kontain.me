@@ -73,6 +73,10 @@ resource "google_project_service" "run" {
   service = "run.googleapis.com"
 }
 
+resource "google_project_service" "datastore" {
+  service = "datastore.googleapis.com"
+}
+
 // Deploy image to each region.
 resource "google_cloud_run_service" "services" {
   for_each = var.services

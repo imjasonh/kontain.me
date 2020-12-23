@@ -9,7 +9,7 @@ import (
 
 func Do(stdout io.Writer, command string) error {
 	var out bytes.Buffer
-	cmd := exec.Command("/bin/sh", "-c", command)
+	cmd := exec.Command("sh", "-c", command)
 	cmd.Stdout = io.MultiWriter(stdout, &out)
 	cmd.Stderr = io.MultiWriter(stdout, &out)
 	if err := cmd.Run(); err != nil {
