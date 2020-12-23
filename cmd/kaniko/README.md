@@ -4,6 +4,12 @@
 serves an image fetched from source on GitHub and built using
 [Kaniko](https://github.com/GoogleContainerTools/kaniko).
 
+## Caveats
+
+* The `Dockerfile` must be named `Dockerfile`, and must be at the root of the
+  path specified in the image name. This path also describes the root of the
+  source context.
+
 ## Examples
 
 Build the latest revision of a repo:
