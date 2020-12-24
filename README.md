@@ -7,6 +7,8 @@ These include:
 * [`mirror.kontain.me`](./cmd/mirror), which pulls and caches images from other registries.
 * [`flatten.kontain.me`](./cmd/flatten), which pulls and flattens images from other registries,
   so they contain only one layer.
+* [`kaniko.kontain.me`](./cmd/kaniko), which builds a GitHub repo using
+  [Kaniko](https://github.com/GoogleContainerTools/kaniko).
 * [`ko.kontain.me`](./cmd/ko), which builds a Go binary into a container image using
   [`ko`](https://github.com/google/ko).
 * [`buildpack.kontain.me`](./cmd/buildpack), which builds a GitHub repo using [CNCF
@@ -20,7 +22,9 @@ image layers using [Graphviz](https://graphviz.org/).
 * The registry does not accept pushes.
 * This is a silly hack and probably isn't stable. Don't rely on it for anything
   serious.
-*  It could probably do a lot of smart things to be a lot faster. 🤷
+* It could probably do a lot of smart things to be a lot faster. 🤷
+* Blobs and manifests are cached for 24 hours wherever possible, but will be
+  rebuilt from scratch after that time.
 
 # How it works
 
@@ -28,8 +32,7 @@ The service is implemented using [Google Cloud
 Run](https://cloud.google.com/run).
 
 When the service receives a request for an image manifest, it parses the
-request and generates layers for the requested image, writing the blobs to
-[Google Cloud Storage](https://cloud.google.com/storage/). After it receives
-the manifest, `docker pull` fetches the blobs. The app simply redirects to
-Cloud Storage to serve the blobs. Blobs are deleted after 24 hours and would be
-rebuilt on the next request.
+request and generates layers for the requested image, writing the manifest and
+blobs to [Google Cloud Storage](https://cloud.google.com/storage/). After it
+receives the manifest, `docker pull` fetches the blobs. The app simply
+redirects to Cloud Storage to serve manifests and blobs.
