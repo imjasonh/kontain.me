@@ -102,46 +102,47 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Error(w, err)
 		return
 	}
-	if err := serve.BlobExists(d.Digest); err != nil {
-		s.info.Printf("INFO (serve.BlobExists(%q)): %v", d.Digest, err)
-
-		// Blob doesn't exist yet. Try to get the image manifest+layers
-		// and cache them.
-		switch d.MediaType {
-		case types.DockerManifestList:
-			// If the image is a manifest list, fetch and mirror
-			// the image index.
-			idx, err := remote.Index(ref)
-			if err != nil {
-				s.error.Printf("ERROR (remote.Index): %v", err)
-				serve.Error(w, err)
-				return
-			}
-			if err := serve.Index(w, r, idx); err != nil {
-				s.error.Printf("ERROR (serve.Index): %v", err)
-				serve.Error(w, err)
-				return
-			}
-		case types.DockerManifestSchema2:
-			// If it's a simple image, fetch and mirror its
-			// manifest.
-			img, err := remote.Image(ref)
-			if err != nil {
-				s.error.Printf("ERROR (remote.Image): %v", err)
-				serve.Error(w, err)
-				return
-			}
-			if err := serve.Manifest(w, r, img); err != nil {
-				s.error.Printf("ERROR (serve.Manifest): %v", err)
-				serve.Error(w, err)
-				return
-			}
-		default:
-			err := fmt.Errorf("unknown media type: %s", d.MediaType)
-			s.error.Printf("ERROR (serveMirrorManifest): %v", err)
-			serve.Error(w, err)
-		}
-	} else {
+	if err := serve.BlobExists(d.Digest.String()); err == nil {
 		serve.Blob(w, r, d.Digest.String())
+		return
+	} else {
+		s.info.Printf("INFO (serve.BlobExists(%q)): %v", d.Digest, err)
+	}
+
+	// Blob doesn't exist yet. Try to get the image manifest+layers
+	// and cache them.
+	switch d.MediaType {
+	case types.DockerManifestList:
+		// If the image is a manifest list, fetch and mirror
+		// the image index.
+		idx, err := remote.Index(ref)
+		if err != nil {
+			s.error.Printf("ERROR (remote.Index): %v", err)
+			serve.Error(w, err)
+			return
+		}
+		if err := serve.Index(w, r, idx); err != nil {
+			s.error.Printf("ERROR (serve.Index): %v", err)
+			serve.Error(w, err)
+			return
+		}
+	case types.DockerManifestSchema2:
+		// If it's a simple image, fetch and mirror its
+		// manifest.
+		img, err := remote.Image(ref)
+		if err != nil {
+			s.error.Printf("ERROR (remote.Image): %v", err)
+			serve.Error(w, err)
+			return
+		}
+		if err := serve.Manifest(w, r, img); err != nil {
+			s.error.Printf("ERROR (serve.Manifest): %v", err)
+			serve.Error(w, err)
+			return
+		}
+	default:
+		err := fmt.Errorf("unknown media type: %s", d.MediaType)
+		s.error.Printf("ERROR (serveMirrorManifest): %v", err)
+		serve.Error(w, err)
 	}
 }

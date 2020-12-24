@@ -73,6 +73,7 @@ resource "google_project_service" "run" {
   service = "run.googleapis.com"
 }
 
+// TODO: don't need this; can't delete it?
 resource "google_project_service" "datastore" {
   service = "datastore.googleapis.com"
 }

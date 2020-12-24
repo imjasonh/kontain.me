@@ -76,6 +76,10 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func cacheKey(orig string) string {
+	return fmt.Sprintf("flatten-%s", orig)
+}
+
 // flatten.kontain.me/ubuntu -> flatten ubuntu and serve
 func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/v2/")
@@ -99,15 +103,20 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: remote.Head(ref) and check for blobs/{digest}-flattened to
-	// serve that instead. This depends on serve.Manifest being able to
-	// write to -flattened.
-
 	// Determine whether the ref is for an image or index.
 	d, err := remote.Head(ref)
 	if err != nil {
 		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
 		serve.Error(w, err)
+		return
+	}
+
+	// Check if we have a flattened manifest cached, and if so serve it
+	// directly.
+	ck := cacheKey(d.Digest.String())
+	if err := serve.BlobExists(ck); err == nil {
+		s.info.Println("serving cached manifest:", ck)
+		serve.Blob(w, r, ck)
 		return
 	}
 
@@ -158,7 +167,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fidx := mutate.AppendManifests(empty.Index, adds...)
-		if err := serve.Index(w, r, fidx); err != nil {
+		if err := serve.Index(w, r, fidx, ck); err != nil {
 			s.error.Printf("ERROR (serve.Index): %v", err)
 			serve.Error(w, err)
 			return
@@ -185,7 +194,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := serve.Manifest(w, r, fimg); err != nil {
+		if err := serve.Manifest(w, r, fimg, ck); err != nil {
 			s.error.Printf("ERROR (serve.Manifest): %v", err)
 			serve.Error(w, err)
 			return

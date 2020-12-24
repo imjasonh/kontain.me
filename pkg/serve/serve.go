@@ -18,22 +18,22 @@ import (
 
 var bucket = os.Getenv("BUCKET")
 
-func Blob(w http.ResponseWriter, r *http.Request, digest string) {
-	url := fmt.Sprintf("https://storage.googleapis.com/%s/blobs/%s", bucket, digest)
+func Blob(w http.ResponseWriter, r *http.Request, name string) {
+	url := fmt.Sprintf("https://storage.googleapis.com/%s/blobs/%s", bucket, name)
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
-func BlobExists(h v1.Hash) error {
+func BlobExists(name string) error {
 	ctx := context.Background() // TODO
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return fmt.Errorf("NewClient: %v", err)
 	}
-	_, err = client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", h)).Attrs(ctx)
+	_, err = client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).Attrs(ctx)
 	return err
 }
 
-func writeBlob(h v1.Hash, rc io.ReadCloser, contentType string) error {
+func writeBlob(name string, h v1.Hash, rc io.ReadCloser, contentType string) error {
 	ctx := context.Background() // TODO
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -42,7 +42,7 @@ func writeBlob(h v1.Hash, rc io.ReadCloser, contentType string) error {
 	// The DoesNotExist precondition can be hit when writing or flushing
 	// data, which can happen any of three places. Anywhere it happens,
 	// just ignore the error since that means the blob already exists.
-	w := client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", h)).
+	w := client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).
 		If(storage.Conditions{DoesNotExist: true}).
 		NewWriter(ctx)
 	w.ObjectAttrs.ContentType = contentType
@@ -65,14 +65,14 @@ func writeBlob(h v1.Hash, rc io.ReadCloser, contentType string) error {
 		}
 		return fmt.Errorf("w.Close: %v", err)
 	}
-	log.Printf("Wrote blob %s", h.String())
+	log.Printf("Wrote blob %s", name)
 	return nil
 }
 
 // Index writes manifest, config and layer blobs for each image in the index,
 // then writes and redirects to the index manifest contents pointing to those
 // blobs.
-func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex) error {
+func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...string) error {
 	im, err := idx.IndexManifest()
 	if err != nil {
 		return err
@@ -105,8 +105,14 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex) error {
 	if err != nil {
 		return err
 	}
-	if err := writeBlob(digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+	if err := writeBlob(digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
+	}
+
+	for _, a := range also {
+		if err := writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+			return err
+		}
 	}
 
 	// Redirect to manifest blob.
@@ -114,7 +120,7 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex) error {
 	return nil
 }
 
-func writeManifest(img v1.Image) error {
+func writeManifest(img v1.Image, also ...string) error {
 	// Write config blob for later serving.
 	ch, err := img.ConfigName()
 	if err != nil {
@@ -125,7 +131,7 @@ func writeManifest(img v1.Image) error {
 		return err
 	}
 	log.Printf("writing config blob %q", ch)
-	if err := writeBlob(ch, ioutil.NopCloser(bytes.NewReader(cb)), ""); err != nil {
+	if err := writeBlob(ch.String(), ch, ioutil.NopCloser(bytes.NewReader(cb)), ""); err != nil {
 		return err
 	}
 
@@ -147,7 +153,7 @@ func writeManifest(img v1.Image) error {
 				return err
 			}
 			log.Printf("writing layer blob %q", lh)
-			return writeBlob(lh, rc, "")
+			return writeBlob(lh.String(), lh, rc, "")
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -167,16 +173,21 @@ func writeManifest(img v1.Image) error {
 	if err != nil {
 		return err
 	}
-	if err := writeBlob(digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+	if err := writeBlob(digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
+	}
+	for _, a := range also {
+		if err := writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 // Manifest writes config and layer blobs for the image, then writes and
 // redirects to the image manifest contents pointing to those blobs.
-func Manifest(w http.ResponseWriter, r *http.Request, img v1.Image) error {
-	if err := writeManifest(img); err != nil {
+func Manifest(w http.ResponseWriter, r *http.Request, img v1.Image, also ...string) error {
+	if err := writeManifest(img, also...); err != nil {
 		return err
 	}
 

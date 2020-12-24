@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -15,12 +13,10 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	"cloud.google.com/go/datastore"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	gauthn "github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/go-github/v32/github"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
@@ -42,16 +38,9 @@ var commitRE = regexp.MustCompile("[a-f0-9]{40}")
 const base = "packs/run:v3alpha2"
 
 func main() {
-	ctx := context.Background()
-	ds, err := datastore.NewClient(ctx, projectID)
-	if err != nil {
-		log.Fatalf("datastore.NewClient: %v", err)
-	}
-
 	http.Handle("/v2/", &server{
 		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
 		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
-		ds:    ds,
 	})
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/master/cmd/kaniko", http.StatusSeeOther))
 
@@ -67,7 +56,6 @@ func main() {
 
 type server struct {
 	info, error *log.Logger
-	ds          *datastore.Client
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -121,9 +109,10 @@ func (s *server) serveKanikoManifest(w http.ResponseWriter, r *http.Request) {
 	// resolve the branch/tag/whatever to a SHA and redirect to that SHA
 	// image tag.
 	if commitRE.MatchString(revision) {
-		if b := s.checkCachedManifest(revision, path); len(b) != 0 {
-			w.Header().Set("Content-Type", string(types.DockerManifestSchema2)) // TODO: don't hard-code
-			io.Copy(w, bytes.NewReader(b))
+		ck := cacheKey(path, revision)
+		if err := serve.BlobExists(ck); err == nil {
+			s.info.Println("serving cached manifest:", ck)
+			serve.Blob(w, r, ck)
 			return
 		}
 	} else {
@@ -154,44 +143,17 @@ func (s *server) serveKanikoManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cache the generated manifest.
-	if b, _ := img.RawManifest(); len(b) != 0 {
-		s.putCachedManifest(revision, path, b)
-	}
-
 	// Serve the manifest.
-	if err := serve.Manifest(w, r, img); err != nil {
+	ck := cacheKey(path, revision)
+	if err := serve.Manifest(w, r, img, ck); err != nil {
 		s.error.Printf("ERROR (serve.Manifest): %v", err)
 		serve.Error(w, err)
 		return
 	}
 }
 
-type cachedManifest struct {
-	Manifest []byte `datastore:",noindex"`
-}
-
-func key(revision, path string) string { return fmt.Sprintf("%s:%s", revision, path) }
-
-func (s *server) checkCachedManifest(revision, path string) []byte {
-	k := datastore.NameKey("Manifests", key(revision, path), nil)
-	var e cachedManifest
-	ctx := context.Background() // TODO
-	if err := s.ds.Get(ctx, k, &e); err == datastore.ErrNoSuchEntity {
-		s.info.Printf("No cached manifest digest for revision=%q path=%q", revision, path)
-	} else if err != nil {
-		s.error.Printf("datastore.Get: %v", err)
-	}
-	return e.Manifest
-}
-
-func (s *server) putCachedManifest(revision, path string, manifest []byte) {
-	k := datastore.NameKey("Manifests", key(revision, path), nil)
-	e := cachedManifest{manifest}
-	ctx := context.Background() // TODO
-	if _, err := s.ds.Put(ctx, k, &e); err != nil {
-		s.error.Printf("datastore.Put: %v", err)
-	}
+func cacheKey(path, revision string) string {
+	return fmt.Sprintf("buildpack-%s-%s", strings.ReplaceAll(path, "/", "_"), revision)
 }
 
 // Resolves a ref (branch, tag, PR, commit) into its SHA.
