@@ -2,18 +2,35 @@
 
 set -euxo pipefail
 
-curl https://kontain.me | grep html
+### buildpack
 
-time docker pull random.kontain.me/random
-time docker pull random.kontain.me/random:8x80
+time crane validate --remote=buildpack.kontain.me/googlecloudplatform/buildpack-samples/sample-go:ed393d
 
-time docker pull ko.kontain.me/ko/github.com/knative/build/cmd/controller
+### flatten
 
-time docker pull buildpack.kontain.me/buildpack/samples/apps/java-maven
-time docker pull buildpack.kontain.me/buildpack/samples/apps/java-maven # caching!
+time crane validate --remote=flatten.kontain.me/busybox
+time crane validate --remote=flatten.kontain.me/busybox
 
-tmp=$(mktemp -d)
-git clone git@github.com:buildpack/samples/ $tmp
-project=$(gcloud config get-value project)
-CLOUDSDK_API_ENDPOINT_OVERRIDES_CLOUDBUILD=https://api-an3qnndwmq-uc.a.run.app/ gcloud builds submit --tag=gcr.io/$project/built $tmp/apps/java-maven
-rm $tmp
+### kaniko
+
+time crane validate --remote=kaniko.kontain.me/dockersamples/node-bulletin-board/bulletin-board-app:3f08afd
+time crane validate --remote=kaniko.kontain.me/dockersamples/node-bulletin-board/bulletin-board-app:3f08afd
+
+### ko
+
+time crane validate --remote=ko.kontain.me/github.com/google/ko/cmd/ko
+time crane validate --remote=ko.kontain.me/github.com/google/ko/cmd/ko
+
+### mirror
+
+time crane validate --remote=mirror.kontain.me/busybox
+time crane validate --remote=mirror.kontain.me/busybox
+
+### random
+
+time crane validate --remote=random.kontain.me/random
+time crane validate --remote=random.kontain.me/random:4x10
+
+### viz
+
+curl https://viz.kontain.me | grep textarea
