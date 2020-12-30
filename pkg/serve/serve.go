@@ -111,10 +111,14 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...st
 	}
 
 	for _, a := range also {
-		log.Printf("writing index manifest %q also to %q", digest, a)
-		if err := writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
-			return err
-		}
+		a := a
+		g.Go(func() error {
+			log.Printf("writing index manifest %q also to %q", digest, a)
+			return writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt))
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
 	}
 
 	// Redirect to manifest blob.
@@ -181,11 +185,13 @@ func writeImage(img v1.Image, also ...string) error {
 		return err
 	}
 	for _, a := range also {
-		log.Printf("writing image manifest %q also to %q", digest, a)
-		if err := writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
-			return err
-		}
+		a := a
+		g.Go(func() error {
+			log.Printf("writing image manifest %q also to %q", digest, a)
+			return writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt))
+		})
 	}
+	return g.Wait()
 	return nil
 }
 
