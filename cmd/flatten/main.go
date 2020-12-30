@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -145,14 +146,13 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 					s.error.Printf("ERROR (idx.Image): %v", err)
 					return err
 				}
-				l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return mutate.Extract(img), nil })
+				fimg, err := s.flatten(img)
 				if err != nil {
-					s.error.Printf("ERROR (tarball.LayerFromOpener): %v", err)
 					return err
 				}
-				fimg, err := mutate.AppendLayers(empty.Image, l)
+				m.Digest, err = fimg.Digest()
 				if err != nil {
-					s.error.Printf("ERROR (mutate.AppendLayers): %v", err)
+					s.error.Printf("ERROR (fimg.Digest): %v", err)
 					return err
 				}
 				adds[i] = mutate.IndexAddendum{
@@ -181,15 +181,8 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return mutate.Extract(img), nil })
+		fimg, err := s.flatten(img)
 		if err != nil {
-			s.error.Printf("ERROR (tarball.LayerFromOpener): %v", err)
-			serve.Error(w, err)
-			return
-		}
-		fimg, err := mutate.AppendLayers(empty.Image, l)
-		if err != nil {
-			s.error.Printf("ERROR (mutate.AppendLayers): %v", err)
 			serve.Error(w, err)
 			return
 		}
@@ -204,4 +197,36 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		s.error.Printf("ERROR (serveFlattenManifest): %v", err)
 		serve.Error(w, err)
 	}
+}
+
+func (s *server) flatten(img v1.Image) (v1.Image, error) {
+	l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return mutate.Extract(img), nil })
+	if err != nil {
+		s.error.Printf("ERROR (tarball.LayerFromOpener): %v", err)
+		return nil, err
+	}
+	fimg, err := mutate.AppendLayers(empty.Image, l)
+	if err != nil {
+		s.error.Printf("ERROR (mutate.AppendLayers): %v", err)
+		return nil, err
+	}
+
+	// Copy over basic information from original config file.
+	ocf, err := img.ConfigFile()
+	if err != nil {
+		s.error.Printf("ERROR (img.ConfigFile): %v", err)
+		return nil, err
+	}
+	ncf, err := fimg.ConfigFile()
+	if err != nil {
+		s.error.Printf("ERROR (empty.Image.ConfigFile): %v", err)
+		return nil, err
+	}
+	cf := ncf.DeepCopy()
+	cf.Architecture = ocf.Architecture
+	cf.OS = ocf.OS
+	cf.OSVersion = ocf.OSVersion
+	cf.Config = ocf.Config
+
+	return mutate.ConfigFile(fimg, cf)
 }

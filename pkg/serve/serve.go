@@ -65,7 +65,7 @@ func writeBlob(name string, h v1.Hash, rc io.ReadCloser, contentType string) err
 		}
 		return fmt.Errorf("w.Close: %v", err)
 	}
-	log.Printf("Wrote blob %s", name)
+	log.Printf("wrote blob %s", name)
 	return nil
 }
 
@@ -85,7 +85,7 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...st
 			if err != nil {
 				return err
 			}
-			return writeManifest(img)
+			return writeImage(img)
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -105,11 +105,13 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...st
 	if err != nil {
 		return err
 	}
+	log.Printf("writing index manifest %q", digest)
 	if err := writeBlob(digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
 	}
 
 	for _, a := range also {
+		log.Printf("writing index manifest %q also to %q", digest, a)
 		if err := writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 			return err
 		}
@@ -120,7 +122,8 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...st
 	return nil
 }
 
-func writeManifest(img v1.Image, also ...string) error {
+// writeImage writes the layer blobs, config blob and manifest.
+func writeImage(img v1.Image, also ...string) error {
 	// Write config blob for later serving.
 	ch, err := img.ConfigName()
 	if err != nil {
@@ -173,10 +176,12 @@ func writeManifest(img v1.Image, also ...string) error {
 	if err != nil {
 		return err
 	}
+	log.Printf("writing image manifest %q", digest)
 	if err := writeBlob(digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
 	}
 	for _, a := range also {
+		log.Printf("writing image manifest %q also to %q", digest, a)
 		if err := writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 			return err
 		}
@@ -187,7 +192,7 @@ func writeManifest(img v1.Image, also ...string) error {
 // Manifest writes config and layer blobs for the image, then writes and
 // redirects to the image manifest contents pointing to those blobs.
 func Manifest(w http.ResponseWriter, r *http.Request, img v1.Image, also ...string) error {
-	if err := writeManifest(img, also...); err != nil {
+	if err := writeImage(img, also...); err != nil {
 		return err
 	}
 
