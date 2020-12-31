@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,9 +15,15 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+	st, err := serve.NewStorage(ctx)
+	if err != nil {
+		log.Fatalf("serve.NewStorage: %v", err)
+	}
 	http.Handle("/v2/", &server{
-		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
+		info:    log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
+		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
+		storage: st,
 	})
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/master/cmd/random", http.StatusSeeOther))
 
@@ -32,6 +39,7 @@ func main() {
 
 type server struct {
 	info, error *log.Logger
+	storage     *serve.Storage
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +91,7 @@ func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Error(w, err)
 		return
 	}
-	if err := serve.Manifest(w, r, img); err != nil {
+	if err := s.storage.ServeManifest(w, r, img); err != nil {
 		s.error.Printf("ERROR (serve.Manifest): %v", err)
 		serve.Error(w, err)
 		return

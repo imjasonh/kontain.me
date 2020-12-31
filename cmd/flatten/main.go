@@ -1,20 +1,7 @@
-// Copyright 2020 Google LLC All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -34,9 +21,15 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+	st, err := serve.NewStorage(ctx)
+	if err != nil {
+		log.Fatalf("serve.NewStorage: %v", err)
+	}
 	http.Handle("/v2/", &server{
-		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
+		info:    log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
+		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
+		storage: st,
 	})
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/master/cmd/flatten", http.StatusSeeOther))
 
@@ -52,6 +45,7 @@ func main() {
 
 type server struct {
 	info, error *log.Logger
+	storage     *serve.Storage
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -83,6 +77,7 @@ func cacheKey(orig string) string {
 
 // flatten.kontain.me/ubuntu -> flatten ubuntu and serve
 func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	path := strings.TrimPrefix(r.URL.Path, "/v2/")
 	parts := strings.Split(path, "/")
 
@@ -115,7 +110,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	// Check if we have a flattened manifest cached, and if so serve it
 	// directly.
 	ck := cacheKey(d.Digest.String())
-	if err := serve.BlobExists(ck); err == nil {
+	if err := s.storage.BlobExists(ctx, ck); err == nil {
 		s.info.Println("serving cached manifest:", ck)
 		serve.Blob(w, r, ck)
 		return
@@ -167,8 +162,8 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		fidx := mutate.AppendManifests(empty.Index, adds...)
-		if err := serve.Index(w, r, fidx, ck); err != nil {
-			s.error.Printf("ERROR (serve.Index): %v", err)
+		if err := s.storage.ServeIndex(w, r, fidx, ck); err != nil {
+			s.error.Printf("ERROR (storage.ServeIndex): %v", err)
 			serve.Error(w, err)
 			return
 		}
@@ -187,8 +182,8 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := serve.Manifest(w, r, fimg, ck); err != nil {
-			s.error.Printf("ERROR (serve.Manifest): %v", err)
+		if err := s.storage.ServeManifest(w, r, fimg, ck); err != nil {
+			s.error.Printf("ERROR (storage.ServeManifest): %v", err)
 			serve.Error(w, err)
 			return
 		}

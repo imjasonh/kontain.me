@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"cloud.google.com/go/storage"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -23,26 +24,31 @@ func Blob(w http.ResponseWriter, r *http.Request, name string) {
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
-func BlobExists(name string) error {
-	ctx := context.Background() // TODO
+type Storage struct {
+	client *storage.Client
+}
+
+func NewStorage(ctx context.Context) (*Storage, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		return fmt.Errorf("NewClient: %v", err)
+		return nil, fmt.Errorf("NewClient: %v", err)
 	}
-	_, err = client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).Attrs(ctx)
+	return &Storage{client}, nil
+}
+
+func (s *Storage) BlobExists(ctx context.Context, name string) error {
+	_, err := s.client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).Attrs(ctx)
 	return err
 }
 
-func writeBlob(name string, h v1.Hash, rc io.ReadCloser, contentType string) error {
-	ctx := context.Background() // TODO
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return fmt.Errorf("NewClient: %v", err)
-	}
+func (s *Storage) writeBlob(ctx context.Context, name string, h v1.Hash, rc io.ReadCloser, contentType string) error {
+	start := time.Now()
+	defer func() { log.Printf("writeBlob(%q) took %s", name, time.Since(start)) }()
+
 	// The DoesNotExist precondition can be hit when writing or flushing
 	// data, which can happen any of three places. Anywhere it happens,
 	// just ignore the error since that means the blob already exists.
-	w := client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).
+	w := s.client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).
 		If(storage.Conditions{DoesNotExist: true}).
 		NewWriter(ctx)
 	w.ObjectAttrs.ContentType = contentType
@@ -65,14 +71,14 @@ func writeBlob(name string, h v1.Hash, rc io.ReadCloser, contentType string) err
 		}
 		return fmt.Errorf("w.Close: %v", err)
 	}
-	log.Printf("wrote blob %s", name)
 	return nil
 }
 
-// Index writes manifest, config and layer blobs for each image in the index,
-// then writes and redirects to the index manifest contents pointing to those
-// blobs.
-func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...string) error {
+// ServeIndex writes manifest, config and layer blobs for each image in the
+// index, then writes and redirects to the index manifest contents pointing to
+// those blobs.
+func (s *Storage) ServeIndex(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...string) error {
+	ctx := r.Context()
 	im, err := idx.IndexManifest()
 	if err != nil {
 		return err
@@ -85,7 +91,7 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...st
 			if err != nil {
 				return err
 			}
-			return writeImage(img)
+			return s.writeImage(ctx, img)
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -105,16 +111,14 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...st
 	if err != nil {
 		return err
 	}
-	log.Printf("writing index manifest %q", digest)
-	if err := writeBlob(digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+	if err := s.writeBlob(ctx, digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
 	}
 
 	for _, a := range also {
 		a := a
 		g.Go(func() error {
-			log.Printf("writing index manifest %q also to %q", digest, a)
-			return writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt))
+			return s.writeBlob(ctx, a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt))
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -127,7 +131,7 @@ func Index(w http.ResponseWriter, r *http.Request, idx v1.ImageIndex, also ...st
 }
 
 // writeImage writes the layer blobs, config blob and manifest.
-func writeImage(img v1.Image, also ...string) error {
+func (s *Storage) writeImage(ctx context.Context, img v1.Image, also ...string) error {
 	// Write config blob for later serving.
 	ch, err := img.ConfigName()
 	if err != nil {
@@ -137,8 +141,7 @@ func writeImage(img v1.Image, also ...string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("writing config blob %q", ch)
-	if err := writeBlob(ch.String(), ch, ioutil.NopCloser(bytes.NewReader(cb)), ""); err != nil {
+	if err := s.writeBlob(ctx, ch.String(), ch, ioutil.NopCloser(bytes.NewReader(cb)), "application/json"); err != nil {
 		return err
 	}
 
@@ -159,8 +162,11 @@ func writeImage(img v1.Image, also ...string) error {
 			if err != nil {
 				return err
 			}
-			log.Printf("writing layer blob %q", lh)
-			return writeBlob(lh.String(), lh, rc, "")
+			mt, err := l.MediaType()
+			if err != nil {
+				return err
+			}
+			return s.writeBlob(ctx, lh.String(), lh, rc, string(mt))
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -180,25 +186,24 @@ func writeImage(img v1.Image, also ...string) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("writing image manifest %q", digest)
-	if err := writeBlob(digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+	if err := s.writeBlob(ctx, digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
 	}
 	for _, a := range also {
 		a := a
 		g.Go(func() error {
-			log.Printf("writing image manifest %q also to %q", digest, a)
-			return writeBlob(a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt))
+			return s.writeBlob(ctx, a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt))
 		})
 	}
 	return g.Wait()
 	return nil
 }
 
-// Manifest writes config and layer blobs for the image, then writes and
+// ServeManifest writes config and layer blobs for the image, then writes and
 // redirects to the image manifest contents pointing to those blobs.
-func Manifest(w http.ResponseWriter, r *http.Request, img v1.Image, also ...string) error {
-	if err := writeImage(img, also...); err != nil {
+func (s *Storage) ServeManifest(w http.ResponseWriter, r *http.Request, img v1.Image, also ...string) error {
+	ctx := r.Context()
+	if err := s.writeImage(ctx, img, also...); err != nil {
 		return err
 	}
 

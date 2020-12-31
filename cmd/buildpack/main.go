@@ -39,9 +39,15 @@ var commitRE = regexp.MustCompile("[a-f0-9]{40}")
 const base = "packs/run:v3alpha2"
 
 func main() {
+	ctx := context.Background()
+	st, err := serve.NewStorage(ctx)
+	if err != nil {
+		log.Fatalf("serve.NewStorage: %v", err)
+	}
 	http.Handle("/v2/", &server{
-		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
+		info:    log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
+		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
+		storage: st,
 	})
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/master/cmd/buildpack", http.StatusSeeOther))
 
@@ -57,6 +63,7 @@ func main() {
 
 type server struct {
 	info, error *log.Logger
+	storage     *serve.Storage
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -81,6 +88,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	// Prepare workspace.
 	src, layers, err := s.prepareWorkspace()
 	if err != nil {
@@ -116,7 +125,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	// image tag.
 	if commitRE.MatchString(revision) {
 		ck := cacheKey(path, revision)
-		if err := serve.BlobExists(ck); err == nil {
+		if err := s.storage.BlobExists(ctx, ck); err == nil {
 			s.info.Println("serving cached manifest:", ck)
 			serve.Blob(w, r, ck)
 			return
@@ -151,8 +160,8 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 
 	// Serve the manifest.
 	ck := cacheKey(path, revision)
-	if err := serve.Manifest(w, r, img, ck); err != nil {
-		s.error.Printf("ERROR (serve.Manifest): %v", err)
+	if err := s.storage.ServeManifest(w, r, img, ck); err != nil {
+		s.error.Printf("ERROR (storage.ServeManifest): %v", err)
 		serve.Error(w, err)
 		return
 	}
