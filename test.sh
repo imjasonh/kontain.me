@@ -34,3 +34,11 @@ time crane validate --remote=random.kontain.me/random:4x10
 ### viz
 
 curl https://viz.kontain.me | grep textarea
+
+### wait
+
+uid=image-$(date +%s)
+crane manifest wait.kontain.me/${uid} || true
+sleep 11 # for good measure
+time crane validate --remote=wait.kontain.me/${uid}
+time crane validate --remote=wait.kontain.me/${uid}
