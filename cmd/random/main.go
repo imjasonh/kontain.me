@@ -74,8 +74,6 @@ func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
 	tag := strings.TrimPrefix(r.URL.Path, "/v2/manifests/")
 	var num, size int64 = 1, 10000000 // 10MB
 
-	s.info.Println("TAG", tag)
-
 	// Captured requested num + size from tag.
 	all := randomTagRE.FindStringSubmatch(tag)
 	if len(all) >= 3 {
@@ -92,7 +90,7 @@ func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.storage.ServeManifest(w, r, img); err != nil {
-		s.error.Printf("ERROR (serve.Manifest): %v", err)
+		s.error.Printf("ERROR (storage.ServeManifest): %v", err)
 		serve.Error(w, err)
 		return
 	}

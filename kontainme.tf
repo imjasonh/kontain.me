@@ -66,6 +66,25 @@ resource "google_storage_bucket" "bucket" {
 
 // TODO: Configure public access + compute SA writer
 
+////// App Engine + Cloud Tasks
+
+// Enable Cloud Tasks API.
+resource "google_project_service" "cloudtasks" {
+  service = "cloudtasks.googleapis.com"
+}
+
+resource "google_app_engine_application" "app" {
+  project     = var.project
+  location_id = "us-central" // TODO: gross, GAE locations != GCP regions :'(
+}
+
+resource "google_cloud_tasks_queue" "wait-queue" {
+  name = "wait-queue"
+  location = var.region
+
+  depends_on = [google_project_service.cloudtasks, google_app_engine_application.app]
+}
+
 ////// Cloud Run
 
 // Enable Cloud Run API.

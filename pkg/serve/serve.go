@@ -41,6 +41,25 @@ func (s *Storage) BlobExists(ctx context.Context, name string) error {
 	return err
 }
 
+func (s *Storage) WriteObject(ctx context.Context, name, contents string) error {
+	w := s.client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).
+		If(storage.Conditions{DoesNotExist: true}).
+		NewWriter(ctx)
+	if _, err := fmt.Fprintln(w, contents); err != nil {
+		if herr, ok := err.(*googleapi.Error); ok && herr.Code == http.StatusPreconditionFailed {
+			return nil
+		}
+		return fmt.Errorf("fmt.Fprintln: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		if herr, ok := err.(*googleapi.Error); ok && herr.Code == http.StatusPreconditionFailed {
+			return nil
+		}
+		return fmt.Errorf("w.Close: %v", err)
+	}
+	return nil
+}
+
 func (s *Storage) writeBlob(ctx context.Context, name string, h v1.Hash, rc io.ReadCloser, contentType string) error {
 	start := time.Now()
 	defer func() { log.Printf("writeBlob(%q) took %s", name, time.Since(start)) }()
@@ -91,7 +110,7 @@ func (s *Storage) ServeIndex(w http.ResponseWriter, r *http.Request, idx v1.Imag
 			if err != nil {
 				return err
 			}
-			return s.writeImage(ctx, img)
+			return s.WriteImage(ctx, img)
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -130,8 +149,8 @@ func (s *Storage) ServeIndex(w http.ResponseWriter, r *http.Request, idx v1.Imag
 	return nil
 }
 
-// writeImage writes the layer blobs, config blob and manifest.
-func (s *Storage) writeImage(ctx context.Context, img v1.Image, also ...string) error {
+// WriteImage writes the layer blobs, config blob and manifest.
+func (s *Storage) WriteImage(ctx context.Context, img v1.Image, also ...string) error {
 	// Write config blob for later serving.
 	ch, err := img.ConfigName()
 	if err != nil {
@@ -203,7 +222,7 @@ func (s *Storage) writeImage(ctx context.Context, img v1.Image, also ...string) 
 // redirects to the image manifest contents pointing to those blobs.
 func (s *Storage) ServeManifest(w http.ResponseWriter, r *http.Request, img v1.Image, also ...string) error {
 	ctx := r.Context()
-	if err := s.writeImage(ctx, img, also...); err != nil {
+	if err := s.WriteImage(ctx, img, also...); err != nil {
 		return err
 	}
 
