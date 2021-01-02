@@ -145,7 +145,7 @@ func (s *server) serveKanikoManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Serve new image manifest.
-	img, err := s.getImage(image)
+	img, err := s.getImage(ctx, image)
 	if err != nil {
 		s.error.Println("ERROR:", err)
 		serve.Error(w, err)
@@ -269,7 +269,7 @@ EOF`, tok.AccessToken),
 	return image, nil
 }
 
-func (s *server) getImage(image string) (v1.Image, error) {
+func (s *server) getImage(ctx context.Context, image string) (v1.Image, error) {
 	ref, err := name.NewTag(image, name.WeakValidation)
 	if err != nil {
 		return nil, err
@@ -278,5 +278,5 @@ func (s *server) getImage(image string) (v1.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	return remote.Image(ref, remote.WithAuth(authn))
+	return remote.Image(ref, remote.WithAuth(authn), remote.WithContext(ctx))
 }

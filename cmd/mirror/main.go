@@ -110,7 +110,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	case types.DockerManifestList:
 		// If the image is a manifest list, fetch and mirror
 		// the image index.
-		idx, err := remote.Index(ref)
+		idx, err := remote.Index(ref, remote.WithContext(ctx))
 		if err != nil {
 			s.error.Printf("ERROR (remote.Index): %v", err)
 			serve.Error(w, err)
@@ -124,7 +124,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	case types.DockerManifestSchema2:
 		// If it's a simple image, fetch and mirror its
 		// manifest.
-		img, err := remote.Image(ref)
+		img, err := remote.Image(ref, remote.WithContext(ctx))
 		if err != nil {
 			s.error.Printf("ERROR (remote.Image): %v", err)
 			serve.Error(w, err)

@@ -118,7 +118,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 
 	switch d.MediaType {
 	case types.DockerManifestList:
-		idx, err := remote.Index(ref)
+		idx, err := remote.Index(ref, remote.WithContext(ctx))
 		if err != nil {
 			s.error.Printf("ERROR (remote.Index): %v", err)
 			serve.Error(w, err)
@@ -169,7 +169,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case types.DockerManifestSchema2:
-		img, err := remote.Image(ref)
+		img, err := remote.Image(ref, remote.WithContext(ctx))
 		if err != nil {
 			s.error.Printf("ERROR (remote.Image): %v", err)
 			serve.Error(w, err)

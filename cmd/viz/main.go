@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -37,6 +38,7 @@ type server struct {
 }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	s.info.Println("handler:", r.Method, r.URL)
 	if r.Method != http.MethodPost {
 		http.Error(w, "must be post", http.StatusMethodNotAllowed)
@@ -44,14 +46,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.ParseForm()
-	log.Println(r.Form) // TODO
 	refs, err := images(r.FormValue("images"))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	d, err := genDot(refs)
+	d, err := genDot(ctx, refs)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -86,7 +87,7 @@ func images(s string) ([]name.Reference, error) {
 	return refs, nil
 }
 
-func genDot(refs []name.Reference) (string, error) {
+func genDot(ctx context.Context, refs []name.Reference) (string, error) {
 	g := dot.NewGraph("images")
 	g.SetType(dot.DIGRAPH)
 
@@ -98,7 +99,7 @@ func genDot(refs []name.Reference) (string, error) {
 
 	edges := map[string]bool{}
 	for _, ref := range refs {
-		layers, err := getLayers(ref)
+		layers, err := getLayers(ctx, ref)
 		if err != nil {
 			return "", fmt.Errorf("Failed to get layers for %q, ignoring: %v\n", ref, err)
 		}
@@ -152,8 +153,8 @@ func short(layer v1.Descriptor) string {
 	return fmt.Sprintf("%s\n%s", layer.Digest.String()[7:19], humanize.Bytes(uint64(layer.Size)))
 }
 
-func getLayers(ref name.Reference) ([]v1.Descriptor, error) {
-	i, err := remote.Image(ref)
+func getLayers(ctx context.Context, ref name.Reference) ([]v1.Descriptor, error) {
+	i, err := remote.Image(ref, remote.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("remote.Image: %v", err)
 	}
