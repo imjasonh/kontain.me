@@ -70,8 +70,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func cacheKey(name string) string {
-	ck := []byte(fmt.Sprintf("wait-%s", strings.ReplaceAll(name, "/", "_")))
-	return fmt.Sprintf("%x", md5.Sum(ck))
+	ck := []byte(strings.ReplaceAll(name, "/", "_"))
+	return fmt.Sprintf("wait-%x", md5.Sum(ck))
 }
 
 // wait.kontain.me/(name):5s -> enqueue task to generate random manifest in 5s

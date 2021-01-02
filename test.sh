@@ -5,6 +5,7 @@ set -euxo pipefail
 ### buildpack
 
 time crane validate --remote=buildpack.kontain.me/googlecloudplatform/buildpack-samples/sample-go:ed393d
+time crane validate --remote=buildpack.kontain.me/googlecloudplatform/buildpack-samples/sample-go:ed393d
 
 ### flatten
 
@@ -18,8 +19,8 @@ time crane validate --remote=kaniko.kontain.me/dockersamples/node-bulletin-board
 
 ### ko
 
-time crane validate --remote=ko.kontain.me/github.com/google/ko/cmd/ko
-time crane validate --remote=ko.kontain.me/github.com/google/ko/cmd/ko
+#time crane validate --remote=ko.kontain.me/github.com/google/ko/cmd/ko
+#time crane validate --remote=ko.kontain.me/github.com/google/ko/cmd/ko
 
 ### mirror
 

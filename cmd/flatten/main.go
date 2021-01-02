@@ -71,9 +71,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func cacheKey(orig string) string {
-	return fmt.Sprintf("flatten-%s", orig)
-}
+func cacheKey(orig string) string { return fmt.Sprintf("flatten-%s", orig) }
 
 // flatten.kontain.me/ubuntu -> flatten ubuntu and serve
 func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -168,7 +169,8 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 }
 
 func cacheKey(path, revision string) string {
-	return fmt.Sprintf("kaniko-%s-%s", strings.ReplaceAll(path, "/", "_"), revision)
+	ck := []byte(fmt.Sprintf("%s-%s", strings.ReplaceAll(path, "/", "_"), revision))
+	return fmt.Sprintf("buildpack-%x", md5.Sum(ck))
 }
 
 // Resolves a ref (branch, tag, PR, commit) into its SHA.

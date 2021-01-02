@@ -162,7 +162,8 @@ func (s *server) serveKanikoManifest(w http.ResponseWriter, r *http.Request) {
 }
 
 func cacheKey(path, revision string) string {
-	return fmt.Sprintf("buildpack-%s-%s", strings.ReplaceAll(path, "/", "_"), revision)
+	ck := fmt.Sprintf("%s-%s", strings.ReplaceAll(path, "/", "_"), revision)
+	return fmt.Sprintf("kaniko-%x", ck)
 }
 
 // Resolves a ref (branch, tag, PR, commit) into its SHA.
