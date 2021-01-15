@@ -75,6 +75,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // ko.kontain.me/github.com/knative/build/cmd/controller -> ko build and serve
 func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	path := strings.TrimPrefix(r.URL.Path, "/v2/")
 	path = strings.TrimPrefix(path, "ko/") // To handle legacy behavior.
 	parts := strings.Split(path, "/")
@@ -96,6 +97,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 
 	// ko build the package.
 	g, err := build.NewGo(
+		ctx,
 		build.WithBaseImages(s.getBaseImage),
 		build.WithCreationTime(v1.Time{time.Unix(0, 0)}),
 	)
@@ -105,9 +107,9 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip = build.StrictScheme + ip
-	if !g.IsSupportedReference(ip) {
-		s.error.Printf("ERROR (IsSupportedReference(%q)): false", ip)
-		serve.Error(w, fmt.Errorf("Import path %q is not package main", ip))
+	if err := g.IsSupportedReference(ip); err != nil {
+		s.error.Printf("ERROR (IsSupportedReference(%q)): %v", ip, err)
+		serve.Error(w, fmt.Errorf("Import path %q is invalid: %v", ip, err))
 		return
 	}
 	s.info.Printf("ko build %s...", ip)
@@ -136,7 +138,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 
 const defaultBaseImage = "gcr.io/distroless/static:nonroot"
 
-func (s *server) getBaseImage(ip string) (build.Result, error) {
+func (s *server) getBaseImage(ctx context.Context, ip string) (build.Result, error) {
 	ip = strings.TrimPrefix(ip, build.StrictScheme)
 	base, err := s.getKoYAMLBaseImage(ip)
 	if err != nil {
@@ -151,7 +153,7 @@ func (s *server) getBaseImage(ip string) (build.Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	d, err := remote.Head(ref)
+	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}

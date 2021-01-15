@@ -98,7 +98,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine whether the ref is for an image or index.
-	d, err := remote.Head(ref)
+	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
 		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
 		serve.Error(w, err)

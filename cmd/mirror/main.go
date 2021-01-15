@@ -91,7 +91,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 
 	// Get the original image's digest, and check if we have that manifest
 	// blob.
-	d, err := remote.Head(ref)
+	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
 		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
 		serve.Error(w, err)
