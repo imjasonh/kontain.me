@@ -1,6 +1,6 @@
 module github.com/imjasonh/kontain.me
 
-go 1.14
+go 1.15
 
 require (
 	cloud.google.com/go v0.75.0
@@ -13,7 +13,6 @@ require (
 	github.com/google/go-github/v32 v32.1.0
 	github.com/google/ko v0.7.0
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
-	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/tmc/dot v0.0.0-20180926222610-6d252d5ff882
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
@@ -27,6 +26,4 @@ require (
 	google.golang.org/genproto v0.0.0-20210114201628-6edceaf6022f // indirect
 	google.golang.org/grpc v1.35.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
-	sigs.k8s.io/structured-merge-diff v1.0.1-0.20191108220359-b1b620dd3f06 // indirect
 )
