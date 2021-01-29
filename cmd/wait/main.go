@@ -84,6 +84,25 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(path, "/")
 	name := strings.Join(parts[:len(parts)-2], "/")
 
+	// If request is for image by digest, try to serve it from GCS.
+	tagOrDigest := parts[len(parts)-1]
+	if strings.HasPrefix(tagOrDigest, "sha256:") {
+		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
+		if err != nil {
+			s.error.Printf("ERROR (storage.BlobExists): %s", err)
+			serve.Error(w, serve.ErrNotFound)
+			return
+		}
+		if r.Method == http.MethodHead {
+			w.Header().Set("Docker-Content-Digest", tagOrDigest)
+			w.Header().Set("Content-Type", string(desc.MediaType))
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", desc.Size))
+			return
+		}
+		serve.Blob(w, r, tagOrDigest)
+		return
+	}
+
 	// The image has already been built; serve it.
 	ck := cacheKey(name)
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
@@ -102,7 +121,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// No cached image or placeholder exists; enqueue a new task.
-	tag := strings.TrimPrefix(r.URL.Path, fmt.Sprintf("/v2/%s/manifests/", name))
+	tag := tagOrDigest
 	if tag == "latest" {
 		tag = "10s"
 	}

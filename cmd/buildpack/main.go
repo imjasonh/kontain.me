@@ -118,12 +118,31 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	}
 	ghOwner, ghRepo := parts[2], parts[3]
 	path := strings.Join(parts[4:len(parts)-2], "/")
-	revision := parts[len(parts)-1]
+	tagOrDigest := parts[len(parts)-1]
+
+	// If request is for image by digest, try to serve it from GCS.
+	if strings.HasPrefix(tagOrDigest, "sha256:") {
+		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
+		if err != nil {
+			s.error.Printf("ERROR (storage.BlobExists): %s", err)
+			serve.Error(w, serve.ErrNotFound)
+			return
+		}
+		if r.Method == http.MethodHead {
+			w.Header().Set("Docker-Content-Digest", tagOrDigest)
+			w.Header().Set("Content-Type", string(desc.MediaType))
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", desc.Size))
+			return
+		}
+		serve.Blob(w, r, tagOrDigest)
+		return
+	}
 
 	// If the image tag looks like a commit SHA, see if we already have a
 	// manifest cached for that revision and serve it directly.  Otherwise,
 	// resolve the branch/tag/whatever to a SHA and redirect to that SHA
 	// image tag.
+	revision := tagOrDigest
 	if commitRE.MatchString(revision) {
 		ck := cacheKey(path, revision)
 		if _, err := s.storage.BlobExists(ctx, ck); err == nil {

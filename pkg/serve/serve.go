@@ -151,6 +151,18 @@ func (s *Storage) ServeIndex(w http.ResponseWriter, r *http.Request, idx v1.Imag
 		return err
 	}
 
+	// If it's just a HEAD request, serve that.
+	if r.Method == http.MethodHead {
+		s, err := idx.Size()
+		if err != nil {
+			return err
+		}
+		w.Header().Set("Docker-Content-Digest", digest.String())
+		w.Header().Set("Content-Type", string(mt))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", s))
+		return nil
+	}
+
 	// Redirect to manifest blob.
 	Blob(w, r, digest.String())
 	return nil
@@ -236,6 +248,22 @@ func (s *Storage) ServeManifest(w http.ResponseWriter, r *http.Request, img v1.I
 	digest, err := img.Digest()
 	if err != nil {
 		return err
+	}
+
+	// If it's just a HEAD request, serve that.
+	if r.Method == http.MethodHead {
+		mt, err := img.MediaType()
+		if err != nil {
+			return err
+		}
+		s, err := img.Size()
+		if err != nil {
+			return err
+		}
+		w.Header().Set("Docker-Content-Digest", digest.String())
+		w.Header().Set("Content-Type", string(mt))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", s))
+		return nil
 	}
 
 	// Redirect to manifest blob.

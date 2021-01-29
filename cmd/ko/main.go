@@ -82,8 +82,25 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	ip := strings.Join(parts[:len(parts)-2], "/")
 
 	// "go get" the package
-	tag := parts[len(parts)-1]
-	s.info.Printf("requested image tag :%s", tag)
+	tagOrDigest := parts[len(parts)-1]
+
+	// If request is for image by digest, try to serve it from GCS.
+	if strings.HasPrefix(tagOrDigest, "sha256:") {
+		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
+		if err != nil {
+			s.error.Printf("ERROR (storage.BlobExists): %s", err)
+			serve.Error(w, serve.ErrNotFound)
+			return
+		}
+		if r.Method == http.MethodHead {
+			w.Header().Set("Docker-Content-Digest", tagOrDigest)
+			w.Header().Set("Content-Type", string(desc.MediaType))
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", desc.Size))
+			return
+		}
+		serve.Blob(w, r, tagOrDigest)
+		return
+	}
 
 	// go get the package.
 	// TODO: Check image tag for version, resolve branches -> commits and redirect to img:<commit>

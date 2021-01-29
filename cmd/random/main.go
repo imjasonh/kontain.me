@@ -71,11 +71,30 @@ var randomTagRE = regexp.MustCompile("([0-9]{1,2})x([0-9]{1,8})")
 // random.kontain.me:3x10mb
 // random.kontain.me(:latest) -> 1x10mb
 func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
-	tag := strings.TrimPrefix(r.URL.Path, "/v2/manifests/")
+	ctx := r.Context()
+	tagOrDigest := strings.TrimPrefix(r.URL.Path, "/v2/manifests/")
 	var num, size int64 = 1, 10000000 // 10MB
 
+	// If request is for image by digest, try to serve it from GCS.
+	if strings.HasPrefix(tagOrDigest, "sha256:") {
+		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
+		if err != nil {
+			s.error.Printf("ERROR (storage.BlobExists): %s", err)
+			serve.Error(w, serve.ErrNotFound)
+			return
+		}
+		if r.Method == http.MethodHead {
+			w.Header().Set("Docker-Content-Digest", tagOrDigest)
+			w.Header().Set("Content-Type", string(desc.MediaType))
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", desc.Size))
+			return
+		}
+		serve.Blob(w, r, tagOrDigest)
+		return
+	}
+
 	// Captured requested num + size from tag.
-	all := randomTagRE.FindStringSubmatch(tag)
+	all := randomTagRE.FindStringSubmatch(tagOrDigest)
 	if len(all) >= 3 {
 		num, _ = strconv.ParseInt(all[1], 10, 64)
 		size, _ = strconv.ParseInt(all[2], 10, 64)
