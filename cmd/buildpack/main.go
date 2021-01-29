@@ -126,7 +126,7 @@ func (s *server) serveBuildpackManifest(w http.ResponseWriter, r *http.Request) 
 	// image tag.
 	if commitRE.MatchString(revision) {
 		ck := cacheKey(path, revision)
-		if err := s.storage.BlobExists(ctx, ck); err == nil {
+		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
 			s.info.Println("serving cached manifest:", ck)
 			serve.Blob(w, r, ck)
 			return
@@ -231,7 +231,7 @@ func (s *server) prepareWorkspace() (string, string, error) {
 }
 
 func (s *server) fetchAndBuild(src, layers, ghOwner, ghRepo, revision, path string) (string, error) {
-	image := fmt.Sprintf("gcr.io/%s/built-%d", projectID, time.Now().Unix)
+	image := fmt.Sprintf("gcr.io/%s/built-%d", projectID, time.Now().Unix())
 	source := fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", ghOwner, ghRepo, revision)
 
 	if resp, err := http.Head(source); err != nil {

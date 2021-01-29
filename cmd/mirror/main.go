@@ -89,6 +89,21 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If it's a HEAD request, and request was by digest, and we have that
+	// manifest mirrored by digest already, serve HEAD response from GCS.
+	// If it's a HEAD request and the other conditions aren't met, we'll
+	// handle this later by consulting the real registry.
+	if r.Method == http.MethodHead {
+		if d, ok := ref.(name.Digest); ok {
+			if desc, err := s.storage.BlobExists(ctx, d.DigestStr()); err == nil {
+				w.Header().Set("Docker-Content-Digest", d.DigestStr())
+				w.Header().Set("Content-Type", string(desc.MediaType))
+				w.Header().Set("Content-Length", fmt.Sprintf("%d", desc.Size))
+				return
+			}
+		}
+	}
+
 	// Get the original image's digest, and check if we have that manifest
 	// blob.
 	d, err := remote.Head(ref, remote.WithContext(ctx))
@@ -97,7 +112,13 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Error(w, err)
 		return
 	}
-	if err := s.storage.BlobExists(ctx, d.Digest.String()); err == nil {
+	if r.Method == http.MethodHead {
+		w.Header().Set("Docker-Content-Digest", d.Digest.String())
+		w.Header().Set("Content-Type", string(d.MediaType))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", d.Size))
+		return
+	}
+	if _, err := s.storage.BlobExists(ctx, d.Digest.String()); err == nil {
 		serve.Blob(w, r, d.Digest.String())
 		return
 	} else {

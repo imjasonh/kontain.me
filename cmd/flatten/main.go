@@ -108,7 +108,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	// Check if we have a flattened manifest cached, and if so serve it
 	// directly.
 	ck := cacheKey(d.Digest.String())
-	if err := s.storage.BlobExists(ctx, ck); err == nil {
+	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
 		s.info.Println("serving cached manifest:", ck)
 		serve.Blob(w, r, ck)
 		return

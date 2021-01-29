@@ -86,7 +86,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 
 	// The image has already been built; serve it.
 	ck := cacheKey(name)
-	if err := s.storage.BlobExists(ctx, ck); err == nil {
+	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
 		s.info.Printf("blob %q exists, serving", ck)
 		serve.Blob(w, r, ck)
 		return
@@ -95,7 +95,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	// If a placeholder exists, a wait is ongoing; serve the placeholder
 	// contents.
 	phn := fmt.Sprintf("placeholder-%s", ck)
-	if err := s.storage.BlobExists(ctx, phn); err == nil {
+	if _, err := s.storage.BlobExists(ctx, phn); err == nil {
 		s.info.Printf("placeholder %q exists", phn)
 		serve.Error(w, fmt.Errorf("waiting for image..."))
 		return
@@ -143,7 +143,7 @@ const size = 100
 const num = 10
 
 var laterFunc = delay.Func("later", func(ctx context.Context, ck string) error {
-	log.Println("generating random image for cache key %q", ck)
+	log.Printf("generating random image for cache key %q", ck)
 	img, err := random.Image(size, num)
 	if err != nil {
 		return err

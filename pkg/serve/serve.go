@@ -13,6 +13,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/googleapi"
 )
@@ -36,9 +37,15 @@ func NewStorage(ctx context.Context) (*Storage, error) {
 	return &Storage{client}, nil
 }
 
-func (s *Storage) BlobExists(ctx context.Context, name string) error {
-	_, err := s.client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).Attrs(ctx)
-	return err
+func (s *Storage) BlobExists(ctx context.Context, name string) (v1.Descriptor, error) {
+	obj, err := s.client.Bucket(bucket).Object(fmt.Sprintf("blobs/%s", name)).Attrs(ctx)
+	if err != nil {
+		return v1.Descriptor{}, err
+	}
+	return v1.Descriptor{
+		MediaType: types.MediaType(obj.ContentType),
+		Size:      obj.Size,
+	}, nil
 }
 
 func (s *Storage) WriteObject(ctx context.Context, name, contents string) error {
