@@ -4,7 +4,7 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "3.52.0"
+      version = "3.54.0"
     }
   }
 }
@@ -43,6 +43,62 @@ variable "services" {
     timeout     = string
   }))
   description = "services to deploy"
+  default = {
+    "buildpack" = {
+      memory      = "4Gi"
+      cpu         = "2"
+      concurrency = "1"
+      timeout     = "900" # 15m
+    }
+    "flatten" = {
+      memory      = "1Gi"
+      cpu         = "1"
+      concurrency = "80"
+      timeout     = "120" # 2m
+    }
+    "kaniko" = {
+      memory      = "4Gi"
+      cpu         = "2"
+      concurrency = "1"
+      timeout     = "900" # 15m
+    }
+    "ko" = {
+      memory      = "4Gi"
+      cpu         = "2"
+      concurrency = "1"
+      timeout     = "900" # 15m
+    }
+    "mirror" = {
+      memory      = "1Gi"
+      cpu         = "1"
+      concurrency = "80"
+      timeout     = "60" # 1m
+    }
+    "mirror" = {
+      memory      = "1Gi"
+      cpu         = "1"
+      concurrency = "80"
+      timeout     = "60" # 1m
+    }
+    "random" = {
+      memory      = "1Gi"
+      cpu         = "1"
+      concurrency = "80"
+      timeout     = "60" # 1m
+    }
+    "viz" = {
+      memory      = "1Gi"
+      cpu         = "1"
+      concurrency = "80"
+      timeout     = "60" # 1m
+    }
+    "wait" = {
+      memory      = "1Gi"
+      cpu         = "1"
+      concurrency = "80"
+      timeout     = "60" # 1m
+    }
+  }
 }
 
 ////// Cloud Storage
@@ -79,7 +135,7 @@ resource "google_app_engine_application" "app" {
 }
 
 resource "google_cloud_tasks_queue" "wait-queue" {
-  name = "wait-queue"
+  name     = "wait-queue"
   location = var.region
 
   depends_on = [google_project_service.cloudtasks, google_app_engine_application.app]

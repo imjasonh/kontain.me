@@ -19,4 +19,4 @@ cat $out
 
 cd -
 
-terraform apply -var-file=kontainme.tfvars -var-file=$out
+terraform apply -var-file=$out
