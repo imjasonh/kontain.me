@@ -29,7 +29,7 @@ func main() {
 		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
 		storage: st,
 	})
-	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/master/cmd/wait", http.StatusSeeOther))
+	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/wait", http.StatusSeeOther))
 
 	log.Println("Starting...")
 	port := os.Getenv("PORT")
