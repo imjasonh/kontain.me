@@ -37,7 +37,7 @@ func init() {
 
 var commitRE = regexp.MustCompile("[a-f0-9]{40}")
 
-const base = "packs/run:v3alpha2"
+const base = "gcr.io/buildpacks/gcp/run:v1"
 
 func main() {
 	ctx := context.Background()
