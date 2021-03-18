@@ -101,79 +101,77 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
 		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
-		serve.Error(w, err)
-		return
-	}
+	} else {
+		if d.MediaType != types.DockerManifestList &&
+			d.MediaType != types.DockerManifestSchema2 {
+			err = fmt.Errorf("unknown media type: %s", d.MediaType)
+			s.error.Printf("ERROR (serveFlattenManifest): %v", err)
+			serve.Error(w, err)
+		}
 
-	// Check if we have a flattened manifest cached, and if so serve it
-	// directly.
-	ck := cacheKey(d.Digest.String())
-	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-		s.info.Println("serving cached manifest:", ck)
-		serve.Blob(w, r, ck)
-		return
+		// Check if we have a flattened manifest cached, and if so serve it
+		// directly.
+		ck := cacheKey(d.Digest.String())
+		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
+			s.info.Println("serving cached manifest:", ck)
+			serve.Blob(w, r, ck)
+			return
+		}
 	}
-
-	switch d.MediaType {
-	case types.DockerManifestList:
-		idx, err := remote.Index(ref, remote.WithContext(ctx))
+	var idx v1.ImageIndex
+	var img v1.Image
+	var ck string
+	if err != nil {
+		var h v1.Hash
+		// HEAD failed, let's figure out if it was an index or image by doing GETs.
+		idx, err = remote.Index(ref, remote.WithContext(ctx))
 		if err != nil {
 			s.error.Printf("ERROR (remote.Index): %v", err)
-			serve.Error(w, err)
-			return
+			img, err = remote.Image(ref, remote.WithContext(ctx))
+			if err != nil {
+				s.error.Printf("ERROR (remote.Image): %v", err)
+				serve.Error(w, err)
+				return
+			}
 		}
-		im, err := idx.IndexManifest()
+
+		if idx != nil {
+			h, err = idx.Digest()
+		} else if img != nil {
+			h, err = img.Digest()
+		}
 		if err != nil {
-			s.error.Printf("ERROR (index.IndexManifest): %v", err)
+			s.error.Printf("ERROR (Digest): %v", err)
 			serve.Error(w, err)
 			return
 		}
-		// Flatten each image in the manifest.
-		var g errgroup.Group
-		adds := make([]mutate.IndexAddendum, len(im.Manifests))
-		for i, m := range im.Manifests {
-			i, m := i, m
-			g.Go(func() error {
-				img, err := idx.Image(m.Digest)
-				if err != nil {
-					s.error.Printf("ERROR (idx.Image): %v", err)
-					return err
-				}
-				fimg, err := s.flatten(img)
-				if err != nil {
-					return err
-				}
-				m.Digest, err = fimg.Digest()
-				if err != nil {
-					s.error.Printf("ERROR (fimg.Digest): %v", err)
-					return err
-				}
-				adds[i] = mutate.IndexAddendum{
-					Add:        fimg,
-					Descriptor: m,
-				}
-				return nil
-			})
+
+		// Check if we have a flattened manifest cached (since HEAD failed
+		// before), and if so serve it directly.
+		ck = cacheKey(h.String())
+		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
+			s.info.Println("serving cached manifest:", ck)
+			serve.Blob(w, r, ck)
+			return
 		}
-		if err := g.Wait(); err != nil {
+	}
+
+	if idx != nil {
+		fidx, err := s.flattenIndex(idx)
+		if err != nil {
 			serve.Error(w, err)
 			return
 		}
-		fidx := mutate.AppendManifests(empty.Index, adds...)
+
 		if err := s.storage.ServeIndex(w, r, fidx, ck); err != nil {
 			s.error.Printf("ERROR (storage.ServeIndex): %v", err)
 			serve.Error(w, err)
 			return
 		}
+		return
+	}
 
-	case types.DockerManifestSchema2:
-		img, err := remote.Image(ref, remote.WithContext(ctx))
-		if err != nil {
-			s.error.Printf("ERROR (remote.Image): %v", err)
-			serve.Error(w, err)
-			return
-		}
-
+	if img != nil {
 		fimg, err := s.flatten(img)
 		if err != nil {
 			serve.Error(w, err)
@@ -185,11 +183,49 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			serve.Error(w, err)
 			return
 		}
-	default:
-		err := fmt.Errorf("unknown media type: %s", d.MediaType)
-		s.error.Printf("ERROR (serveFlattenManifest): %v", err)
-		serve.Error(w, err)
+		return
 	}
+
+}
+
+func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
+	im, err := idx.IndexManifest()
+	if err != nil {
+		s.error.Printf("ERROR (index.IndexManifest): %v", err)
+		return nil, err
+	}
+	// Flatten each image in the manifest.
+	var g errgroup.Group
+	adds := make([]mutate.IndexAddendum, len(im.Manifests))
+	for i, m := range im.Manifests {
+		i, m := i, m
+		g.Go(func() error {
+			img, err := idx.Image(m.Digest)
+			if err != nil {
+				s.error.Printf("ERROR (idx.Image): %v", err)
+				return err
+			}
+			fimg, err := s.flatten(img)
+			if err != nil {
+				return err
+			}
+			m.Digest, err = fimg.Digest()
+			if err != nil {
+				s.error.Printf("ERROR (fimg.Digest): %v", err)
+				return err
+			}
+			adds[i] = mutate.IndexAddendum{
+				Add:        fimg,
+				Descriptor: m,
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		s.error.Printf("ERROR (flattenIndex): %v", err)
+		return nil, err
+	}
+	return mutate.AppendManifests(empty.Index, adds...), nil
 }
 
 func (s *server) flatten(img v1.Image) (v1.Image, error) {
