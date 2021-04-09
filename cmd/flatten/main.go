@@ -71,6 +71,13 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var acceptableMediaTypes = map[types.MediaType]bool{
+	types.DockerManifestSchema2: true,
+	types.DockerManifestList:    true,
+	types.OCIImageIndex:         true,
+	types.OCIManifestSchema1:    true,
+}
+
 func cacheKey(orig string) string { return fmt.Sprintf("flatten-%s", orig) }
 
 // flatten.kontain.me/ubuntu -> flatten ubuntu and serve
@@ -97,31 +104,14 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var idx v1.ImageIndex
+	var img v1.Image
+	var ck string
+
 	// Determine whether the ref is for an image or index.
 	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
 		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
-	} else {
-		if d.MediaType != types.DockerManifestList &&
-			d.MediaType != types.DockerManifestSchema2 {
-			err = fmt.Errorf("unknown media type: %s", d.MediaType)
-			s.error.Printf("ERROR (serveFlattenManifest): %v", err)
-			serve.Error(w, err)
-		}
-
-		// Check if we have a flattened manifest cached, and if so serve it
-		// directly.
-		ck := cacheKey(d.Digest.String())
-		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-			s.info.Println("serving cached manifest:", ck)
-			serve.Blob(w, r, ck)
-			return
-		}
-	}
-	var idx v1.ImageIndex
-	var img v1.Image
-	var ck string
-	if err != nil {
 		var h v1.Hash
 		// HEAD failed, let's figure out if it was an index or image by doing GETs.
 		idx, err = remote.Index(ref, remote.WithContext(ctx))
@@ -153,6 +143,41 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			s.info.Println("serving cached manifest:", ck)
 			serve.Blob(w, r, ck)
 			return
+		}
+	} else {
+		if !acceptableMediaTypes[d.MediaType] {
+			err = fmt.Errorf("unknown media type: %s", d.MediaType)
+			s.error.Printf("ERROR (serveFlattenManifest): %v", err)
+			serve.Error(w, err)
+			return
+		}
+
+		// Check if we have a flattened manifest cached, and if so serve it
+		// directly.
+		ck = cacheKey(d.Digest.String())
+		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
+			s.info.Println("serving cached manifest:", ck)
+			serve.Blob(w, r, ck)
+			return
+		}
+
+		switch d.MediaType {
+		case types.OCIImageIndex, types.DockerManifestList:
+			idx, err = remote.Index(ref, remote.WithContext(ctx))
+			if err != nil {
+				err = fmt.Errorf("remote.Index: %v", err)
+				s.error.Printf("ERROR (serveFlattenManifest): %v", err)
+				serve.Error(w, err)
+				return
+			}
+		case types.OCIManifestSchema1, types.DockerManifestSchema2:
+			img, err = remote.Image(ref, remote.WithContext(ctx))
+			if err != nil {
+				err = fmt.Errorf("remote.Image: %v", err)
+				s.error.Printf("ERROR (serveFlattenManifest): %v", err)
+				serve.Error(w, err)
+				return
+			}
 		}
 	}
 

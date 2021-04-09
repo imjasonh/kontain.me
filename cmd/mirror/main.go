@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/imjasonh/kontain.me/pkg/serve"
@@ -104,13 +105,57 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var idx v1.ImageIndex
+	var img v1.Image
+
 	// Get the original image's digest, and check if we have that manifest
 	// blob.
 	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
 		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
-		serve.Error(w, err)
-		return
+		var desci interface {
+			Digest() (v1.Hash, error)
+			Size() (int64, error)
+			MediaType() (types.MediaType, error)
+		}
+		// HEAD failed, let's figure out if it was an index or image by doing GETs.
+		idx, err = remote.Index(ref, remote.WithContext(ctx))
+		if err != nil {
+			s.error.Printf("ERROR (remote.Index): %v", err)
+			img, err = remote.Image(ref, remote.WithContext(ctx))
+			if err != nil {
+				s.error.Printf("ERROR (remote.Image): %v", err)
+				serve.Error(w, err)
+				return
+			}
+			desci = img
+		} else {
+			desci = idx
+		}
+
+		h, err := desci.Digest()
+		if err != nil {
+			s.error.Printf("ERROR (desc.Digest): %v", err)
+			serve.Error(w, err)
+			return
+		}
+		sz, err := desci.Size()
+		if err != nil {
+			s.error.Printf("ERROR (desc.Size): %v", err)
+			serve.Error(w, err)
+			return
+		}
+		mt, err := desci.MediaType()
+		if err != nil {
+			s.error.Printf("ERROR (desc.MediaType): %v", err)
+			serve.Error(w, err)
+			return
+		}
+		d = &v1.Descriptor{
+			Digest:    h,
+			MediaType: mt,
+			Size:      sz,
+		}
 	}
 	if r.Method == http.MethodHead {
 		w.Header().Set("Docker-Content-Digest", d.Digest.String())
@@ -128,28 +173,32 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	// Blob doesn't exist yet. Try to get the image manifest+layers
 	// and cache them.
 	switch d.MediaType {
-	case types.DockerManifestList:
-		// If the image is a manifest list, fetch and mirror
-		// the image index.
-		idx, err := remote.Index(ref, remote.WithContext(ctx))
-		if err != nil {
-			s.error.Printf("ERROR (remote.Index): %v", err)
-			serve.Error(w, err)
-			return
+	case types.OCIImageIndex, types.DockerManifestList:
+		if idx == nil {
+			// If the image is a manifest list, fetch and mirror
+			// the image index.
+			idx, err = remote.Index(ref, remote.WithContext(ctx))
+			if err != nil {
+				s.error.Printf("ERROR (remote.Index): %v", err)
+				serve.Error(w, err)
+				return
+			}
 		}
 		if err := s.storage.ServeIndex(w, r, idx); err != nil {
 			s.error.Printf("ERROR (storage.ServeIndex): %v", err)
 			serve.Error(w, err)
 			return
 		}
-	case types.DockerManifestSchema2:
-		// If it's a simple image, fetch and mirror its
-		// manifest.
-		img, err := remote.Image(ref, remote.WithContext(ctx))
-		if err != nil {
-			s.error.Printf("ERROR (remote.Image): %v", err)
-			serve.Error(w, err)
-			return
+	case types.OCIManifestSchema1, types.DockerManifestSchema2:
+		if img == nil {
+			// If it's a simple image, fetch and mirror its
+			// manifest.
+			img, err = remote.Image(ref, remote.WithContext(ctx))
+			if err != nil {
+				s.error.Printf("ERROR (remote.Image): %v", err)
+				serve.Error(w, err)
+				return
+			}
 		}
 		if err := s.storage.ServeManifest(w, r, img); err != nil {
 			s.error.Printf("ERROR (storage.ServeManifest): %v", err)
