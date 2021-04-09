@@ -29,3 +29,13 @@ This screencast requests an image that should exist in five seconds, then waits
 to see it appear and checks that it's valid.
 
 [![asciicast](https://asciinema.org/a/JUiiq33BaGF3NGx10PP6uvETf.svg)](https://asciinema.org/a/JUiiq33BaGF3NGx10PP6uvETf)
+
+## Why?
+
+This demonstrates being able to asynchronously produce an image, rather than
+blocking the initial pull HTTP request until the image is available.
+
+A container orchestrator like Kubernetes would pull this image and report
+`ImagePullBackoff` until the image was finally served, at which point it would
+pull and run it. In the meantime, the registry could be building or mirroring
+or modifying the image in the background.

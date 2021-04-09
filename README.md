@@ -13,6 +13,8 @@ These include:
   [`ko`](https://github.com/google/ko).
 * [`buildpack.kontain.me`](./cmd/buildpack), which builds a GitHub repo using [CNCF
   Buildpacks](https://buildpacks.io).
+* [`wait.kontain.me`](./cmd/wait), which enqueues a background task to serve a
+  random image after some amount of time.
 
 This repo also serves [`viz.kontain.me`](./cmd/viz), which visualizes shared
 image layers using [Graphviz](https://graphviz.org/).
