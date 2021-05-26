@@ -1,8 +1,3 @@
-steps:
-  - uses: ahmadnassri/action-dependabot-auto-merge@v2
-    with:
-      github-token: ${{ secrets.mytoken }}
-
 name: Auto-Merge Dependabot
 
 on:
