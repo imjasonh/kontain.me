@@ -5,11 +5,10 @@ go 1.15
 require (
 	cloud.google.com/go v0.82.0
 	cloud.google.com/go/storage v1.12.0
-	github.com/containerd/stargz-snapshotter/estargz v0.0.0-20210115045816-880da3afb014 // indirect
 	github.com/docker/cli v20.10.2+incompatible // indirect
 	github.com/docker/docker v20.10.2+incompatible // indirect
 	github.com/dustin/go-humanize v1.0.0
-	github.com/google/go-containerregistry v0.4.0
+	github.com/google/go-containerregistry v0.5.1
 	github.com/google/go-github/v32 v32.1.0
 	github.com/google/ko v0.7.0
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
