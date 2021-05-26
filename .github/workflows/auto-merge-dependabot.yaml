@@ -1,0 +1,18 @@
+steps:
+  - uses: ahmadnassri/action-dependabot-auto-merge@v2
+    with:
+      github-token: ${{ secrets.mytoken }}
+
+name: Auto-Merge Dependabot
+
+on:
+  pull_request:
+    branches: ['main']
+
+jobs:
+  auto-merge:
+    name: Auto-Merge
+    runs-on: ['ubuntu-latest']
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ahmadnassri/action-dependabot-auto-merge@v2
