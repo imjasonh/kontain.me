@@ -3,7 +3,7 @@ module github.com/imjasonh/kontain.me
 go 1.15
 
 require (
-	cloud.google.com/go v0.82.0
+	cloud.google.com/go v0.83.0
 	cloud.google.com/go/storage v1.15.0
 	github.com/docker/cli v20.10.2+incompatible // indirect
 	github.com/docker/docker v20.10.2+incompatible // indirect
