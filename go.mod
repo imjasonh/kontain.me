@@ -3,7 +3,7 @@ module github.com/imjasonh/kontain.me
 go 1.15
 
 require (
-	cloud.google.com/go v0.82.0
+	cloud.google.com/go v0.84.0
 	cloud.google.com/go/storage v1.15.0
 	github.com/docker/cli v20.10.2+incompatible // indirect
 	github.com/docker/docker v20.10.2+incompatible // indirect
@@ -17,6 +17,6 @@ require (
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/api v0.47.0
+	google.golang.org/api v0.48.0
 	gopkg.in/yaml.v2 v2.4.0
 )
