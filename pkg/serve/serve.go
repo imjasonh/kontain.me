@@ -42,7 +42,16 @@ func (s *Storage) BlobExists(ctx context.Context, name string) (v1.Descriptor, e
 	if err != nil {
 		return v1.Descriptor{}, err
 	}
+	var h v1.Hash
+	if d := obj.Metadata["Docker-Content-Digest"]; d != "" {
+		h, err = v1.NewHash(d)
+		if err != nil {
+			return v1.Descriptor{}, err
+		}
+	}
+
 	return v1.Descriptor{
+		Digest:    h,
 		MediaType: types.MediaType(obj.ContentType),
 		Size:      obj.Size,
 	}, nil
