@@ -51,6 +51,12 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.info.Println("handler:", r.Method, r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
+	// Log Range requests
+	// TODO: correlate these requests with files/chunks in blobs to generate prioritization and/or whiteout files.
+	if rng := r.Header.Get("Range"); rng != "" {
+		s.info.Printf("Got blob request for %q with Range: %s", path, rng)
+	}
+
 	switch {
 	case path == "":
 		// API Version check.
@@ -63,9 +69,6 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(r.URL.Path, "/")
 		digest := parts[len(parts)-1]
 		serve.Blob(w, r, digest)
-		if rng := r.Header.Get("Range"); rng != "" {
-			s.info.Printf("Got blob request with Range: %s", rng)
-		}
 	case strings.Contains(path, "/manifests/"):
 		s.serveEstartgzManifest(w, r)
 	default:
@@ -99,8 +102,6 @@ func (s *server) serveEstartgzManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ck string
-
 	// Determine whether the ref is for an image or index.
 	desc, err := remote.Get(ref, remote.WithContext(ctx))
 	if err != nil {
@@ -111,7 +112,7 @@ func (s *server) serveEstartgzManifest(w http.ResponseWriter, r *http.Request) {
 
 	// Check if we have a estargzed manifest cached (since HEAD failed
 	// before), and if so serve it directly.
-	ck = cacheKey(desc.Digest.String())
+	ck := cacheKey(desc.Digest.String())
 	if desc, err := s.storage.BlobExists(ctx, ck); err == nil {
 		if r.Method == http.MethodHead {
 			w.Header().Set("Docker-Content-Digest", desc.Digest.String())

@@ -51,10 +51,10 @@ variable "services" {
       timeout     = "900" # 15m
     }
     "estargz" = {
-      memory      = "1Gi"
+      memory      = "4Gi"
       cpu         = "1"
       concurrency = "80"
-      timeout     = "120" # 2m
+      timeout     = "300" # 5m
     }
     "flatten" = {
       memory      = "1Gi"
