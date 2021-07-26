@@ -21,3 +21,5 @@ Or by tag:
 ```
 docker pull flatten.kontain.me/busybox:musl
 ```
+
+Flattened images can't be requested by the digest of the unflattened image, because the flattened image digest won't match the original image's digest.
