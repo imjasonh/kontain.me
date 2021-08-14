@@ -92,6 +92,12 @@ variable "services" {
       concurrency = "80"
       timeout     = "60" # 1m
     }
+    "transparency" = {
+      memory      = "128Mi"
+      cpu         = "1"
+      concurrency = "1000"
+      timeout     = "60" # 1m
+    }
     "viz" = {
       memory      = "1Gi"
       cpu         = "1"

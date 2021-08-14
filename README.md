@@ -13,6 +13,9 @@ These include:
   [`ko`](https://github.com/google/ko).
 * [`buildpack.kontain.me`](./cmd/buildpack), which builds a GitHub repo using [CNCF
   Buildpacks](https://buildpacks.io).
+* [`estargz.kontain.me`](./cmd/estargz), which optimizes an image's layers for
+  partial image pulls using
+  [estargz](https://github.com/containerd/stargz-snapshotter).
 * [`wait.kontain.me`](./cmd/wait), which enqueues a background task to serve a
   random image after some amount of time.
 
