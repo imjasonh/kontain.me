@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -39,38 +42,46 @@ type server struct {
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.info.Println("handler:", r.Method, r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
+	parts := strings.Split(path, "/")
 
 	switch {
 	case r.URL.Path == "/v2/":
 		// API Version check.
 		w.Header().Set("Docker-Distribution-API-Version", "registry/2.0")
 		return
-	case strings.Contains(path, "/blobs/"),
-		strings.Contains(path, "/manifests/sha256:"):
+	case parts[len(parts)-2] == "blobs":
 		s.redirect(w, r)
-	case strings.Contains(path, "/manifests/"):
-		s.recordManifest(w, r)
+	case parts[len(parts)-2] == "manifests":
+		s.checkManifest(w, r)
 	default:
 		serve.Error(w, serve.ErrNotFound)
 	}
 }
 
 // path /v2/gcr.io/foo/bar/baz/blobs/sha -> https://gcr.io/v2/foo/bar/baz/blobs/sha
-// path /v2/gcr.io/foo/bar/baz/manifests/sha -> https://gcr.io/v2/foo/bar/baz/manifests/sha
-// path /v2/gcr.io/foo/bar/baz/manifests/tag -> https://gcr.io/v2/foo/bar/baz/manifests/tag
+// path /v2/ubuntu/blobs/sha -> https://index.docker.io/v2/library/ubuntu/blobs/sha
 func (s *server) redirect(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
+	if len(parts) < 5 {
 		serve.Error(w, serve.ErrNotFound)
 		return
 	}
-	url := "https://" + parts[2] + "/v2/" + strings.Join(parts[3:], "/")
+	repo := strings.Join(parts[2:len(parts)-2], "/")
+	ref, err := name.ParseReference(repo)
+	if err != nil {
+		s.error.Printf("ERROR (ParseReference(%q)): %v", repo, err)
+		serve.Error(w, err)
+		return
+	}
+
+	dig := parts[len(parts)-1]
+	url := "https://" + ref.Context().RegistryStr() + "/v2/" + ref.Context().String() + "/blobs/" + dig
 	s.info.Println("redirecting to", url)
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
 // /v2/gcr.io/foo/bar/baz/manifests/tag-name -> gcr.io/foo/bar/baz:tag-name
-func (s *server) recordManifest(w http.ResponseWriter, r *http.Request) {
+func (s *server) checkManifest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	parts := strings.Split(r.URL.Path, "/")
 	if len(parts) < 4 {
@@ -78,7 +89,12 @@ func (s *server) recordManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Parse and canonicalize to handle "ubuntu" -> "index.docker.io/library/ubuntu"
-	refstr := strings.Join(parts[2:len(parts)-2], "/") + ":" + parts[len(parts)-1]
+	last := parts[len(parts)-1]
+	sep := ":"
+	if strings.Contains(last, ":") {
+		sep = "@"
+	}
+	refstr := strings.Join(parts[2:len(parts)-2], "/") + sep + last
 	s.info.Println("request for ref", refstr)
 	ref, err := name.ParseReference(refstr)
 	if err != nil {
@@ -96,6 +112,16 @@ func (s *server) recordManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	cur := desc.Digest
 	s.info.Printf("current: %s -> %s", ref, cur)
+
+	// If request is by digest, serve it directly.
+	if _, ok := ref.(name.Digest); ok {
+		w.Header().Set("Docker-Content-Digest", desc.Digest.String())
+		w.Header().Set("Content-Type", string(desc.MediaType))
+		w.Header().Set("Content-Length", strconv.Itoa(int(desc.Size)))
+		w.WriteHeader(http.StatusOK)
+		io.Copy(w, bytes.NewReader(desc.Manifest))
+		return
+	}
 
 	// Look up ref in rekor log.
 	got, err := s.lookup(ctx, ref)
@@ -121,10 +147,12 @@ func (s *server) recordManifest(w http.ResponseWriter, r *http.Request) {
 		// Otherwise, proceed and redirect.
 	}
 
-	canon := "/v2/" + ref.Context().String() + "/manifests/" + ref.Identifier()
-	s.info.Println("redirecting as", canon)
-	r.URL.Path = canon
-	s.redirect(w, r)
+	// Write the manifest out.
+	w.Header().Set("Docker-Content-Digest", desc.Digest.String())
+	w.Header().Set("Content-Type", string(desc.MediaType))
+	w.Header().Set("Content-Length", strconv.Itoa(int(desc.Size)))
+	w.WriteHeader(http.StatusOK)
+	io.Copy(w, bytes.NewReader(desc.Manifest))
 }
 
 var errRekordNotFound = errors.New("record not found in rekor")
