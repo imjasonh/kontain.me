@@ -2,4 +2,8 @@
 
 set -euxo pipefail
 
-time find cmd -name "deploy.sh" -exec {} \;
+
+find cmd -name 'deploy.sh' -print0 | 
+    while IFS= read -r -d '' line; do 
+        bash -c "$line"
+    done
