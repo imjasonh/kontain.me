@@ -1,5 +1,7 @@
 name: Deploy
 
+
+
 on:
   schedule:
   - cron: '0 1 * * *' # 1AM UTC; 9PM Eastern
@@ -11,6 +13,10 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ['ubuntu-latest']
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
     steps:
     - uses: actions/setup-go@v2
       with:
