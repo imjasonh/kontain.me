@@ -1,0 +1,33 @@
+name: Deploy
+
+on:
+  schedule:
+  - cron: '0 1 * * *' # 1AM UTC; 9PM Eastern
+  push:
+    branches: ['main']
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ['ubuntu-latest']
+    steps:
+    - uses: actions/setup-go@v2
+      with:
+        go-version: 1.17.x
+    - uses: actions/checkout@v2
+    - uses: imjasonh/setup-ko@v0.4
+    - uses: 'google-github-actions/setup-gcloud@v0.2.1'
+      with:
+        project_id: 'kontaindotme'
+
+    - uses: 'google-github-actions/auth@v0.3.0'
+      id: auth
+      with:
+        token_format: 'id_token'
+        workload_identity_provider: 'projects/7577580991/locations/global/workloadIdentityPools/gha-pool/providers/gha-provider'
+        service_account: 'gha-deployer@kontaindotme.iam.gserviceaccount.com'
+        create_credentials_file: true
+    - run: gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
+
+    - run: ./deploy.sh
