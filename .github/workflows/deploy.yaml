@@ -35,9 +35,10 @@ jobs:
         workload_identity_provider: 'projects/7577580991/locations/global/workloadIdentityPools/gha-pool/providers/gha-provider'
         service_account: 'gha-deployer@kontaindotme.iam.gserviceaccount.com'
         create_credentials_file: true
-    - run: |
+    - name: Setup Auth
+      run: |
+        gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
         gcloud auth list
         gcloud config list
-        gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
 
     - run: ./deploy.sh
