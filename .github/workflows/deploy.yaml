@@ -40,7 +40,7 @@ jobs:
     - name: Login
       run: |
         gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
-        gcloud auth print-access-token | ko login gcr.io --username=nonsense --password-stdin
+        gcloud auth print-identity-token | ko login gcr.io --username=nonsense --password-stdin
 
     # Test a quick one first. TODO: remove
     - run: ko publish ./cmd/random
