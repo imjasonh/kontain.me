@@ -1,7 +1,5 @@
 name: Deploy
 
-
-
 on:
   schedule:
   - cron: '0 1 * * *' # 1AM UTC; 9PM Eastern
@@ -16,7 +14,6 @@ jobs:
     permissions:
       id-token: write
       contents: read
-      packages: write
     steps:
     # Setup tools
     - uses: actions/setup-go@v2
@@ -42,6 +39,5 @@ jobs:
         gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
         gcloud auth print-access-token | ko login gcr.io --username=oauth2accesstoken --password-stdin
 
-    # Test a quick one first. TODO: remove
-    - run: ko publish ./cmd/random
+    # Deploy!
     - run: ./deploy.sh
