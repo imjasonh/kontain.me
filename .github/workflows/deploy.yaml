@@ -40,7 +40,9 @@ jobs:
     - name: Login
       run: |
         gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
-        gcloud run services list # check auth; TODO: remove
+        # TODO remove
+        gcloud auth list
+        gcloud run services list
 
     # Test a quick one first. TODO: remove
     - run: ko publish ./cmd/random
