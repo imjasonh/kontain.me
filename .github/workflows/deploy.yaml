@@ -17,6 +17,8 @@ jobs:
         go-version: 1.17.x
     - uses: actions/checkout@v2
     - uses: imjasonh/setup-ko@v0.4
+      env:
+        KO_DOCKER_REPO: gcr.io/kontaindotme
     - uses: 'google-github-actions/setup-gcloud@v0.2.1'
       with:
         project_id: 'kontaindotme'
@@ -24,7 +26,6 @@ jobs:
     - uses: 'google-github-actions/auth@v0.3.0'
       id: auth
       with:
-        token_format: 'id_token'
         workload_identity_provider: 'projects/7577580991/locations/global/workloadIdentityPools/gha-pool/providers/gha-provider'
         service_account: 'gha-deployer@kontaindotme.iam.gserviceaccount.com'
         create_credentials_file: true
