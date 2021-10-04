@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	cloud.google.com/go v0.97.0
-	cloud.google.com/go/storage v1.16.1
+	cloud.google.com/go/storage v1.17.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/google/go-containerregistry v0.6.0
 	github.com/google/go-github/v32 v32.1.0
