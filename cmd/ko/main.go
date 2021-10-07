@@ -114,7 +114,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 
 	// ko build the package.
 	g, err := build.NewGo(
-		ctx,
+		ctx, "",
 		build.WithBaseImages(s.getBaseImage),
 		build.WithCreationTime(v1.Time{time.Unix(0, 0)}),
 	)
@@ -155,11 +155,11 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 
 const defaultBaseImage = "gcr.io/distroless/static:nonroot"
 
-func (s *server) getBaseImage(ctx context.Context, ip string) (build.Result, error) {
+func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, build.Result, error) {
 	ip = strings.TrimPrefix(ip, build.StrictScheme)
 	base, err := s.getKoYAMLBaseImage(ip)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if base == "" {
 		base = defaultBaseImage
@@ -168,21 +168,23 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (build.Result, err
 
 	ref, err := name.ParseReference(base)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	switch d.MediaType {
 	case types.DockerManifestList:
 		s.info.Printf("Base image %q is manifest list", base)
-		return remote.Index(ref)
+		idx, err := remote.Index(ref)
+		return ref, idx, err
 	case types.DockerManifestSchema2:
 		s.info.Printf("Base image %q is image", base)
-		return remote.Image(ref)
+		img, err := remote.Image(ref)
+		return ref, img, err
 	default:
-		return nil, fmt.Errorf("unknown media type: %s", d.MediaType)
+		return nil, nil, fmt.Errorf("unknown media type: %s", d.MediaType)
 	}
 }
 
