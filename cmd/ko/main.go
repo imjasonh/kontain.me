@@ -118,10 +118,8 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	ck := cacheKey(ip, version)
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
 		s.info.Println("serving cached manifest:", ck)
-		/*
-			serve.Blob(w, r, ck)
-			return
-		*/
+		serve.Blob(w, r, ck)
+		return
 	}
 	filepath := strings.TrimPrefix(ip, module)
 

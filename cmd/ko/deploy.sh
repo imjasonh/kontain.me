@@ -8,7 +8,7 @@ gcloud run deploy ko \
   --allow-unauthenticated \
   --set-env-vars=BUCKET=kontaindotme \
   --image=$(KO_DOCKER_REPO=gcr.io/kontaindotme ko publish -P ./cmd/ko) \
-  --memory=4Gi \
-  --cpu=2 \
+  --memory=8Gi \
+  --cpu=4 \
   --concurrency=1 \
   --timeout=900 # 15m
