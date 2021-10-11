@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/json"
 	"errors"
 	"fmt"
-	gobuild "go/build"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -19,6 +21,8 @@ import (
 	"github.com/google/ko/pkg/build"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
+	"golang.org/x/mod/module"
+	"golang.org/x/mod/zip"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -102,49 +106,47 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// go get the package.
-	// TODO: Check image tag for version, resolve branches -> commits and redirect to img:<commit>
-	// TODO: For requests for commit SHAs, check if it's already built and serve that instead.
-	s.info.Printf("go get %s...", ip)
-	if err := run.Do(s.info.Writer(), fmt.Sprintf("go get %s", ip)); err != nil {
-		s.error.Printf("ERROR (go get): %s", err)
+	// If tag is "latest", resolve it using Go module proxy
+	// - https://proxy.golang.org/github.com/google/ko/@latest
+	// Otherwise, resolve it using
+	// - https://proxy.golang.org/github.com/google/ko/@v/${TAG_OR_BRANCH}.info
+	// In either case, take that Version and make a cacheKey out of it, then `go get @version`.
+	module, version, err := walkUp(ctx, ip, tagOrDigest)
+	if err != nil {
+		s.error.Printf("ERROR (version): %s", err)
 		serve.Error(w, err)
 		return
 	}
 
-	// ko build the package.
-	g, err := build.NewGo(
-		ctx, "",
-		build.WithBaseImages(s.getBaseImage),
-		build.WithCreationTime(v1.Time{time.Unix(0, 0)}),
-	)
+	// Check if we've already got a manifest for this importpath + resolved version.
+	ck := cacheKey(ip, version)
+	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
+		s.info.Println("serving cached manifest:", ck)
+		// TODO
+		/*
+			serve.Blob(w, r, ck)
+			return
+		*/
+	}
+	filepath := strings.TrimPrefix(ip, module)
+
+	// Pull the module source from the module proxy and build it.
+	br, err := s.fetchAndBuild(ctx, module, version, filepath)
 	if err != nil {
-		s.error.Printf("ERROR (build.NewGo): %s", err)
+		s.error.Printf("ERROR (fetchAndBuild): %s", err)
 		serve.Error(w, err)
 		return
 	}
-	ip = build.StrictScheme + ip
-	if err := g.IsSupportedReference(ip); err != nil {
-		s.error.Printf("ERROR (IsSupportedReference(%q)): %v", ip, err)
-		serve.Error(w, fmt.Errorf("Import path %q is invalid: %v", ip, err))
-		return
-	}
-	s.info.Printf("ko build %s...", ip)
-	br, err := g.Build(context.Background(), ip)
-	if err != nil {
-		s.error.Printf("ERROR (ko build): %s", err)
-		serve.Error(w, err)
-		return
-	}
+
 	if idx, ok := br.(v1.ImageIndex); ok {
-		if err := s.storage.ServeIndex(w, r, idx); err != nil {
+		if err := s.storage.ServeIndex(w, r, idx, ck); err != nil {
 			s.error.Printf("ERROR (storage.ServeIndex): %v", err)
 			serve.Error(w, err)
 		}
 		return
 	}
 	if img, ok := br.(v1.Image); ok {
-		if err := s.storage.ServeManifest(w, r, img); err != nil {
+		if err := s.storage.ServeManifest(w, r, img, ck); err != nil {
 			s.error.Printf("ERROR (storage.ServeManifest): %v", err)
 			serve.Error(w, err)
 		}
@@ -153,16 +155,34 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	serve.Error(w, errors.New("image was not image or index"))
 }
 
+func cacheKey(importpath, version string) string {
+	ck := []byte(fmt.Sprintf("%s-%s", importpath, version))
+	return fmt.Sprintf("ko-%x", md5.Sum(ck))
+}
+
 const defaultBaseImage = "gcr.io/distroless/static:nonroot"
 
 func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, build.Result, error) {
-	ip = strings.TrimPrefix(ip, build.StrictScheme)
-	base, err := s.getKoYAMLBaseImage(ip)
-	if err != nil {
-		return nil, nil, err
-	}
-	if base == "" {
-		base = defaultBaseImage
+	base := defaultBaseImage
+	// Assuming we're in the root of the module directory, see if we can
+	// find the .ko.yaml file.
+	f, err := os.Open(".ko.yaml")
+	if err == nil {
+		defer f.Close()
+		s.info.Printf("Found .ko.yaml")
+		var y struct {
+			DefaultBaseImage   string            `yaml:"defaultBaseImage"`
+			BaseImageOverrides map[string]string `yaml:"baseImageOverrides"`
+		}
+		if err := yaml.NewDecoder(f).Decode(&y); err != nil {
+			return nil, nil, err
+		}
+		if y.DefaultBaseImage != "" {
+			base = y.DefaultBaseImage
+		}
+		if bio := y.BaseImageOverrides[ip]; bio != "" {
+			base = bio
+		}
 	}
 	s.info.Printf("Using base image %q for %s", base, ip)
 
@@ -175,11 +195,11 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, b
 		return nil, nil, err
 	}
 	switch d.MediaType {
-	case types.DockerManifestList:
+	case types.DockerManifestList, types.OCIImageIndex:
 		s.info.Printf("Base image %q is manifest list", base)
 		idx, err := remote.Index(ref)
 		return ref, idx, err
-	case types.DockerManifestSchema2:
+	case types.DockerManifestSchema2, types.OCIManifestSchema1:
 		s.info.Printf("Base image %q is image", base)
 		img, err := remote.Image(ref)
 		return ref, img, err
@@ -188,35 +208,120 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, b
 	}
 }
 
-func (s *server) getKoYAMLBaseImage(ip string) (string, error) {
-	gopath := gobuild.Default.GOPATH
-	orig := ip
-	for ; ip != "."; ip = filepath.Dir(ip) {
-		fp := filepath.Join(gopath, "src", ip, ".ko.yaml")
-		f, err := os.Open(fp)
-		if os.IsNotExist(err) {
-			// Keep walking.
-			continue
-		} else if err != nil {
-			return "", err
+// given an importpath e.g., github.com/google/go-containerregistry/cmd/crane,
+// return its go module (github.com/google/go-containerregistry) by
+// sequentially checking whether the Go module proxy has version info for it.
+func walkUp(ctx context.Context, importpath, version string) (string, string, error) {
+	parts := strings.Split(importpath, "/")
+	for i := len(parts) - 1; i > 0; i-- {
+		check := strings.Join(parts[:i], "/")
+		if resolved, err := getVersion(ctx, check, version); err == nil {
+			return check, resolved, nil
 		}
-		defer f.Close()
-
-		s.info.Printf("Found .ko.yaml at %q", fp)
-
-		// .ko.yaml was found, let's try to parse it.
-		var y struct {
-			DefaultBaseImage   string            `yaml:"defaultBaseImage"`
-			BaseImageOverrides map[string]string `yaml:"baseImageOverrides"`
-		}
-		if err := yaml.NewDecoder(f).Decode(&y); err != nil {
-			return "", err
-		}
-		if bio, ok := y.BaseImageOverrides[orig]; ok {
-			return bio, nil
-		}
-		return y.DefaultBaseImage, nil
 	}
-	// No .ko.yaml found walking up to repo root.
-	return "", nil
+	return "", "", errors.New("no module found")
+}
+
+func getVersion(ctx context.Context, mod, version string) (string, error) {
+	url := fmt.Sprintf("https://proxy.golang.org/%s/@v/%s.info", mod, version)
+	if version == "latest" {
+		url = fmt.Sprintf("https://proxy.golang.org/%s/@latest", mod)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("%d: %s", resp.StatusCode, resp.Status)
+	}
+	defer resp.Body.Close()
+	var v module.Version
+	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
+		return "", err
+	}
+	return v.Version, nil
+}
+
+func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath string) (build.Result, error) {
+	log.Println("module", mod)
+	log.Println("version", version)
+	log.Println("filepath", filepath)
+
+	url := fmt.Sprintf("https://proxy.golang.org/%s/@v/%s.zip", mod, version)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
+	}
+	defer resp.Body.Close()
+
+	// Write a temp zip file.
+	tmpzip, err := ioutil.TempFile("", "")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tmpzip.Name()) // Clean up the zip file.
+	if _, err := io.Copy(tmpzip, resp.Body); err != nil {
+		return nil, err
+	}
+	tmpzip.Close()
+
+	// Create a tempdir and cd into it
+	// (This is only safe because concurrency=1)
+	tmpdir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return nil, err
+	}
+	pwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	if err := os.Chdir(tmpdir); err != nil {
+		return nil, err
+	}
+	// Clean up the temp dir. If building is successful, we'll serve a
+	// cached manifest and not need to rebuild.
+	defer os.Chdir(pwd)
+	//	defer os.RemoveAll(tmpdir)
+
+	// Unzip and validate the module zip file.
+	if err := zip.Unzip(tmpdir, module.Version{
+		Path:    mod,
+		Version: version,
+	}, tmpzip.Name()); err != nil {
+		return nil, err
+	}
+
+	log.Println("tmpdir:", tmpdir)
+
+	if err := run.Do(os.Stderr, "go mod download"); err != nil {
+		return nil, err
+	}
+
+	// ko build the package.
+	g, err := build.NewGo(
+		ctx, "",
+		build.WithBaseImages(s.getBaseImage),
+		build.WithCreationTime(v1.Time{time.Unix(0, 0)}),
+	)
+	if err != nil {
+		return nil, err
+	}
+	ip := build.StrictScheme + mod + filepath
+	if err := g.IsSupportedReference(ip); err != nil {
+		return nil, err
+	}
+	log.Println("ko build", ip) // TODO remove
+	s.info.Printf("ko build %s...", ip)
+	return g.Build(ctx, ip)
 }
