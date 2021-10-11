@@ -19,7 +19,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/ko/pkg/build"
-	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/zip"
@@ -106,14 +105,11 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If tag is "latest", resolve it using Go module proxy
-	// - https://proxy.golang.org/github.com/google/ko/@latest
-	// Otherwise, resolve it using
-	// - https://proxy.golang.org/github.com/google/ko/@v/${TAG_OR_BRANCH}.info
-	// In either case, take that Version and make a cacheKey out of it, then `go get @version`.
+	// Traverse up from the importpath to find the module root, by checking
+	// whether the path is a module path that returns a version.
 	module, version, err := walkUp(ctx, ip, tagOrDigest)
 	if err != nil {
-		s.error.Printf("ERROR (version): %s", err)
+		s.error.Printf("ERROR (walkUp): %s", err)
 		serve.Error(w, err)
 		return
 	}
@@ -122,7 +118,6 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	ck := cacheKey(ip, version)
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
 		s.info.Println("serving cached manifest:", ck)
-		// TODO
 		/*
 			serve.Blob(w, r, ck)
 			return
@@ -247,10 +242,6 @@ func getVersion(ctx context.Context, mod, version string) (string, error) {
 }
 
 func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath string) (build.Result, error) {
-	log.Println("module", mod)
-	log.Println("version", version)
-	log.Println("filepath", filepath)
-
 	url := fmt.Sprintf("https://proxy.golang.org/%s/@v/%s.zip", mod, version)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -282,17 +273,9 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 	if err != nil {
 		return nil, err
 	}
-	pwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	if err := os.Chdir(tmpdir); err != nil {
-		return nil, err
-	}
 	// Clean up the temp dir. If building is successful, we'll serve a
 	// cached manifest and not need to rebuild.
-	defer os.Chdir(pwd)
-	//	defer os.RemoveAll(tmpdir)
+	defer os.RemoveAll(tmpdir)
 
 	// Unzip and validate the module zip file.
 	if err := zip.Unzip(tmpdir, module.Version{
@@ -302,16 +285,19 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 		return nil, err
 	}
 
-	log.Println("tmpdir:", tmpdir)
-
-	if err := run.Do(os.Stderr, "go mod download"); err != nil {
-		return nil, err
-	}
-
 	// ko build the package.
 	g, err := build.NewGo(
-		ctx, "",
+		ctx, tmpdir,
 		build.WithBaseImages(s.getBaseImage),
+		build.WithPlatforms("all"),
+		build.WithConfig(map[string]build.Config{
+			mod + filepath: build.Config{
+				// Go module proxy zips include only
+				// modules.txt in vendor/, so force mod mode to
+				// avoid go build errors.
+				Flags: build.FlagArray{"-mod=mod"},
+			},
+		}),
 		build.WithCreationTime(v1.Time{time.Unix(0, 0)}),
 	)
 	if err != nil {
@@ -321,7 +307,6 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 	if err := g.IsSupportedReference(ip); err != nil {
 		return nil, err
 	}
-	log.Println("ko build", ip) // TODO remove
 	s.info.Printf("ko build %s...", ip)
 	return g.Build(ctx, ip)
 }
