@@ -20,7 +20,6 @@ import (
 	"github.com/google/go-github/v32/github"
 	"github.com/imjasonh/kontain.me/pkg/run"
 	"github.com/imjasonh/kontain.me/pkg/serve"
-	"golang.org/x/oauth2/google"
 )
 
 var projectID = ""
@@ -242,39 +241,11 @@ func (s *server) prepareWorkspace() error {
 }
 
 func (s *server) fetchAndBuild(ghOwner, ghRepo, revision, path string) (string, error) {
-	image := fmt.Sprintf("gcr.io/%s/built-%d", projectID, time.Now().Unix())
+	image := fmt.Sprintf("gcr.io/%s/kaniko:built-at-%d", projectID, time.Now().Unix())
 	source := fmt.Sprintf("https://github.com/%s/%s/archive/%s.tar.gz", ghOwner, ghRepo, revision)
-
-	if resp, err := http.Head(source); err != nil {
-		return "", err
-	} else if resp.StatusCode == http.StatusNotFound {
-		return "", serve.ErrNotFound
-	} else if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HEAD %s (%d): %s", source, resp.StatusCode, resp.Status)
-	}
-
-	ts, err := google.DefaultTokenSource(context.Background(), "https://www.googleapis.com/auth/cloud-platform")
-	if err != nil {
-		return "", fmt.Errorf("google.DefaultTokenSource: %v", err)
-	}
-	tok, err := ts.Token()
-	if err != nil {
-		return "", fmt.Errorf("credentials.Token: %v", err)
-	}
 
 	for _, cmd := range []string{
 		fmt.Sprintf("wget -qO- %s | tar xz --strip-components=1 -C .", source),
-		fmt.Sprintf(`
-mkdir -p ~/.docker/ && cat > ~/.docker/config.json << EOF
-{
-  "auths": {
-    "gcr.io": {
-      "username": "oauth2accesstoken",
-      "password": "%s"
-    }
-  }
-}
-EOF`, tok.AccessToken),
 		fmt.Sprintf(`
 /kaniko/executor --force \
   --dockerfile=./%s/Dockerfile \
