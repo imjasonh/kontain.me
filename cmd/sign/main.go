@@ -6,6 +6,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"log"
 	"net/http"
 	"os"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
 	"github.com/sigstore/cosign/cmd/cosign/cli/sign"
+	"github.com/sigstore/cosign/cmd/cosign/cli/verify"
+	"github.com/sigstore/cosign/pkg/cosign"
 	fulcioclient "github.com/sigstore/fulcio/pkg/client"
 )
 
@@ -136,7 +139,9 @@ func (s *server) serveSignManifest(w http.ResponseWriter, r *http.Request) {
 		OIDCClientID: "sigstore",
 	}
 
-	err = sign.SignCmd(ctx, ko, options.RegistryOptions{}, nil, []string{refstr}, "", true, "", false, false, "")
+	ro := options.RegistryOptions{}
+
+	err = sign.SignCmd(ctx, ko, ro, nil, []string{refstr}, "", true, "", false, false, "")
 
 	if err != nil {
 		s.error.Printf("ERROR (Cosign Keyless Sign(%q)): %v", refstr, err)
@@ -152,7 +157,32 @@ func (s *server) serveSignManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: verify keyless
+	co, err := ro.ClientOpts(ctx)
+	if err != nil {
+		s.error.Println("ERROR:", err)
+		serve.Error(w, err)
+		return
+	}
+
+	verified, _, err := cosign.VerifyImageSignatures(ctx, ref, &cosign.CheckOpts{
+		RekorURL:           "https://rekor.sigstore.dev",
+		RegistryClientOpts: co,
+		RootCerts: fulcio.GetRoots(),
+	})
+	
+	if err != nil {
+		s.error.Println("VerifyImageSignatures:", err)
+		serve.Error(w, err)
+		return
+	}
+
+	if len(verified) > 0 {
+		verify.PrintVerification(refstr, verified, "text")
+	} else {
+		s.error.Println("PrintVerification:", err)
+		serve.Error(w, err)
+		return
+	}
 
 	// Serve the manifest.
 	ck := cacheKey(path, revision)
