@@ -1,5 +1,9 @@
-**kontain.me** serves Docker container images generated on-demand at the
-time they are requested.
+# kontain.me
+
+[![CI](https://github.com/imjasonh/kontain.me/actions/workflows/ci.yaml/badge.svg?event=push)](https://github.com/imjasonh/kontain.me/actions/workflows/ci.yaml)
+[![Deploy](https://github.com/imjasonh/kontain.me/actions/workflows/deploy.yaml/badge.svg)](https://github.com/imjasonh/kontain.me/actions/workflows/deploy.yaml)
+
+Serving container images generated on-demand, at the time they are requested.
 
 These include:
 
