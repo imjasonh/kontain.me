@@ -15,7 +15,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-    # Setup tools
+    - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
         go-version: 1.17.x
@@ -24,13 +24,15 @@ jobs:
         path: |
           ~/.cache/go-build
           ~/go/pkg/mod
+          ~/ko
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
-    - uses: actions/checkout@v2
     - uses: imjasonh/setup-ko@v0.4
       env:
         KO_DOCKER_REPO: gcr.io/kontaindotme
+      with:
+        version: tip
     - uses: imjasonh/setup-crane@v0.1
     - uses: 'google-github-actions/setup-gcloud@v0.2.1'
       with:
@@ -50,5 +52,7 @@ jobs:
 
     # Deploy and test
     - run: ./deploy.sh
+      env:
+        KOCACHE: ~/ko
     - run: ./test.sh
     
