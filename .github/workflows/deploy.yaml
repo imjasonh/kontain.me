@@ -25,21 +25,18 @@ jobs:
       with:
         version: tip
     - uses: imjasonh/setup-crane@v0.1
-    - uses: 'google-github-actions/setup-gcloud@v0.2.1'
+    - uses: google-github-actions/setup-gcloud@v0.2.1
       with:
         project_id: kontaindotme
 
     # Setup OIDC->SA auth
-    - uses: 'google-github-actions/auth@v0.3.0'
+    - uses: google-github-actions/auth@v0.3.0
       id: auth
       with:
         workload_identity_provider: 'projects/7577580991/locations/global/workloadIdentityPools/gha-pool/providers/gha-provider'
         service_account: 'gha-deployer@kontaindotme.iam.gserviceaccount.com'
         create_credentials_file: true
-    - name: Login
-      run: |
-        gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
-        gcloud auth print-access-token | ko login gcr.io --username=oauth2accesstoken --password-stdin
+    - run: gcloud auth configure-docker
 
     # Checkout code.
     - uses: actions/checkout@v2
