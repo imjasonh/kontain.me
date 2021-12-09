@@ -36,7 +36,9 @@ jobs:
         workload_identity_provider: 'projects/7577580991/locations/global/workloadIdentityPools/gha-pool/providers/gha-provider'
         service_account: 'gha-deployer@kontaindotme.iam.gserviceaccount.com'
         create_credentials_file: true
-    - run: gcloud auth configure-docker
+    - run: |
+        gcloud auth configure-docker
+        gcloud auth login --brief --cred-file="${{ steps.auth.outputs.credentials_file_path }}"
 
     # Checkout code.
     - uses: actions/checkout@v2
