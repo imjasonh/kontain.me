@@ -15,10 +15,19 @@ jobs:
       id-token: write
       contents: read
     steps:
-    # Install tools.
+    - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
         go-version: 1.17.x
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+          ~/ko
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
     - uses: imjasonh/setup-ko@v0.4
       env:
         KO_DOCKER_REPO: gcr.io/kontaindotme
@@ -38,19 +47,7 @@ jobs:
         create_credentials_file: true
     - run: gcloud auth configure-docker
 
-    # Checkout code.
-    - uses: actions/checkout@v2
-    - uses: actions/cache@v2
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-          ~/ko
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
-
-    # Deploy and test.
+    # Deploy and test
     - run: ./deploy.sh
       env:
         KOCACHE: ~/ko
