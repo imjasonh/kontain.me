@@ -3,7 +3,8 @@ module github.com/imjasonh/kontain.me
 go 1.15
 
 require (
-	cloud.google.com/go v0.99.0
+	cloud.google.com/go/compute v0.1.0
+	cloud.google.com/go/iam v0.1.0 // indirect
 	cloud.google.com/go/storage v1.18.2
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
@@ -23,9 +24,7 @@ require (
 	golang.org/x/net v0.0.0-20211208012354-db4efeb81f4b // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20211205182925-97ca703d548d // indirect
 	golang.org/x/tools v0.1.8 // indirect
-	google.golang.org/api v0.61.0
-	google.golang.org/genproto v0.0.0-20211207154714-918901c715cf // indirect
+	google.golang.org/api v0.63.0
 	gopkg.in/yaml.v2 v2.4.0
 )
