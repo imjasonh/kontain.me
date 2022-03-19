@@ -297,6 +297,7 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 			},
 		}),
 		build.WithCreationTime(v1.Time{time.Unix(0, 0)}),
+		build.WithDisabledSBOM(),
 	)
 	if err != nil {
 		return nil, err
