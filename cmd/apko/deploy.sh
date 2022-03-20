@@ -2,7 +2,7 @@
 
 set -euxo pipefail
 
-gcloud run deploy apko \
+gcloud beta run deploy apko \
   --project=kontaindotme \
   --region=us-central1 \
   --allow-unauthenticated \
@@ -11,4 +11,5 @@ gcloud run deploy apko \
   --memory=2Gi \
   --cpu=4 \
   --concurrency=1 \
+  --execution-environment gen2 \
   --timeout=900 # 15m

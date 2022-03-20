@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -146,7 +145,7 @@ contents:
 	}
 
 	bc, err := build.New(wd,
-		build.WithImageConfiguration(types.ImageConfiguration{}),
+		build.WithImageConfiguration(ic),
 		build.WithProot(true),
 		build.WithArch(amd64), // TODO: multiarch
 		build.WithBuildDate(time.Time{}.Format(time.RFC3339)),
@@ -154,9 +153,6 @@ contents:
 	if err != nil {
 		return nil, err
 	}
-
-	workDir := bc.WorkDir
-	bc.WorkDir = filepath.Join(workDir, amd64.ToAPK())
 
 	if err := bc.Refresh(); err != nil {
 		return nil, fmt.Errorf("failed to update build context for %q: %w", amd64, err)
@@ -166,7 +162,8 @@ contents:
 	if err != nil {
 		return nil, fmt.Errorf("failed to build layer image for %q: %w", amd64, err)
 	}
-	defer os.Remove(layerTarGZ)
+	// TODO(kaniini): clean up everything correctly for multitag scenario
+	// defer os.Remove(layerTarGZ)
 
 	v1Layer, err := v1tar.LayerFromFile(layerTarGZ)
 	if err != nil {
