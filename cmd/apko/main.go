@@ -81,9 +81,6 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	// "go get" the package
 	tagOrDigest := parts[len(parts)-1]
 
-	packages := parts[:len(parts)-2]
-	sort.Strings(packages)
-
 	// If request is for image by digest, try to serve it from GCS.
 	if strings.HasPrefix(tagOrDigest, "sha256:") {
 		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
@@ -102,8 +99,40 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if we've already got a manifest for this set of packages.
+	packages := parts[:len(parts)-2]
+	var ic types.ImageConfiguration
+	if packages[0] == "url" {
+		resp, err := http.Get("https://" + strings.Join(packages[1:], "/"))
+		if err != nil {
+			s.error.Printf("ERROR (fetch): %s", err)
+			serve.Error(w, err)
+			return
+		}
+		defer resp.Body.Close()
+
+		if err := yaml.NewDecoder(resp.Body).Decode(&ic); err != nil {
+			s.error.Printf("ERROR (parse fetched IC): %s", err)
+			serve.Error(w, err)
+			return
+		}
+	} else {
+		sort.Strings(packages)
+
+		// TODO: no way to actually specify an ImageConfiguration... :-/
+		if err := yaml.NewDecoder(strings.NewReader(fmt.Sprintf(`
+contents:
+  repositories:
+  - https://dl-cdn.alpinelinux.org/alpine/edge/main # TODO: other repos?
+  packages: [%s]
+`, strings.Join(packages, ",")))).Decode(&ic); err != nil {
+			s.error.Printf("ERROR (parse generated IC): %s", err)
+			serve.Error(w, err)
+			return
+		}
+	}
 	ck := cacheKey(packages)
+
+	// Check if we've already got a manifest for this set of packages.
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
 		s.info.Println("serving cached manifest:", ck)
 		serve.Blob(w, r, ck)
@@ -111,7 +140,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build the image.
-	img, err := s.build(ctx, packages)
+	img, err := s.build(ctx, ic)
 	if err != nil {
 		s.error.Printf("ERROR (build): %s", err)
 		serve.Error(w, err)
@@ -126,23 +155,12 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 
 var amd64 = types.ParseArchitecture("amd64")
 
-func (s *server) build(ctx context.Context, packages []string) (v1.Image, error) {
+func (s *server) build(ctx context.Context, ic types.ImageConfiguration) (v1.Image, error) {
 	wd, err := os.MkdirTemp("", "apko-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create working directory: %w", err)
 	}
 	defer os.RemoveAll(wd)
-
-	// TODO: no way to actually specify an ImageConfiguration... :-/
-	var ic types.ImageConfiguration
-	if err := yaml.NewDecoder(strings.NewReader(fmt.Sprintf(`
-contents:
-  repositories:
-  - https://dl-cdn.alpinelinux.org/alpine/edge/main # TODO: other repos?
-  packages: [%s]
-`, strings.Join(packages, ",")))).Decode(&ic); err != nil {
-		return nil, err
-	}
 
 	bc, err := build.New(wd,
 		build.WithImageConfiguration(ic),

@@ -17,3 +17,9 @@ Build and pull an image containing `nginx`:
 ```
 docker pull apko.kontain.me/alpine-baselayout/nginx
 ```
+
+You can also specify the URL of an image config YAML to fetch, parse and build, if `url` is the first element in the path:
+
+```
+docker pull apko.kontain.me/url/raw.githubusercontent.com/chainguard-dev/apko/main/examples/nginx-rootless.yaml
+```
