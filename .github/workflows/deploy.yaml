@@ -35,7 +35,7 @@ jobs:
     - uses: google-github-actions/setup-gcloud@v0.6.0
       with:
         project_id: kontaindotme
-        components: beta
+        install_components: beta
 
     # Deploy and test.
     - run: ./deploy.sh
