@@ -1,5 +1,6 @@
 baseImageOverrides:
   github.com/imjasonh/kontain.me/cmd/api: gcr.io/buildpacks/builder
+  github.com/imjasonh/kontain.me/cmd/apko: gcr.io/kontaindotme/apko-base # from Dockerfile.base
   github.com/imjasonh/kontain.me/cmd/buildpack: gcr.io/buildpacks/builder
   github.com/imjasonh/kontain.me/cmd/kaniko: gcr.io/kaniko-project/executor:debug
   github.com/imjasonh/kontain.me/cmd/ko: golang

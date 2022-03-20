@@ -1,0 +1,5 @@
+FROM alpine
+
+RUN apk update
+RUN apk add qemu qemu-img qemu-system-x86_64 qemu-ui-gtk
+RUN apk add proot --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
