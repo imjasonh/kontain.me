@@ -8,8 +8,8 @@ gcloud beta run deploy apko \
   --allow-unauthenticated \
   --set-env-vars=BUCKET=kontaindotme \
   --image=$(KO_DOCKER_REPO=gcr.io/kontaindotme ko publish -P ./cmd/apko) \
-  --memory=2Gi \
-  --cpu=4 \
+  --memory=512Mi \
+  --cpu=1 \
   --concurrency=1 \
   --execution-environment gen2 \
   --timeout=900 # 15m
