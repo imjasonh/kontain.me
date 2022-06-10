@@ -47,6 +47,15 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.info.Println("handler:", r.Method, r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
+	w.Header().Set("Access-Control-Allow-Origin", "*")                 // Allow CORS requests from any domain.
+	w.Header().Set("Access-Control-Expose-Headers", "*")               // Respond with all headers to requests from any domain.
+	w.Header().Set("Access-Control-Allow-Credentials", "true")         // Allow... credentials? I guess?
+	w.Header().Set("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS") // Allow CORS requests to use these methods.
+	w.Header().Set("Access-Control-Allow-Headers", "*")                // Allow all CORS headers in the OPTIONS request.
+	if r.Method == http.MethodOptions {
+		return
+	}
+
 	switch {
 	case path == "":
 		// API Version check.
