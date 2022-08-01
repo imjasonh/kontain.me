@@ -21,7 +21,7 @@ jobs:
     - uses: actions/setup-go@v2
       with:
         go-version: 1.18
-    - uses: imjasonh/setup-ko@v0.4
+    - uses: imjasonh/setup-ko@v0.5
       env:
         KO_DOCKER_REPO: gcr.io/kontaindotme
     - uses: imjasonh/setup-crane@v0.1
