@@ -8,7 +8,7 @@ gcloud run deploy mirror \
   --allow-unauthenticated \
   --set-env-vars=BUCKET=kontaindotme \
   --image=$(KO_DOCKER_REPO=gcr.io/kontaindotme ko publish -P ./cmd/mirror) \
-  --memory=1Gi \
-  --cpu=1 \
+  --memory=4Gi \
+  --cpu=4 \
   --concurrency=80 \
-  --timeout=60 # 1m
+  --timeout=600 # 10m
