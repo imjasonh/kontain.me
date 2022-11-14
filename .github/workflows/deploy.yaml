@@ -27,7 +27,7 @@ jobs:
     - uses: imjasonh/setup-crane@v0.1
 
     # Setup OIDC->SA auth
-    - uses: google-github-actions/auth@v0
+    - uses: google-github-actions/auth@v1
       id: auth
       with:
         workload_identity_provider: 'projects/7577580991/locations/global/workloadIdentityPools/gha-pool/providers/gha-provider'
