@@ -7,16 +7,18 @@
 Build and pull a minimal distroless base image:
 
 ```
-docker pull apko.kontain.me/alpine-baselayout
+docker pull apko.kontain.me/wolfi-baselayout
 ```
 
-(PS: you should just use [`ghcr.io/distroless/static`](https://github.com/distroless/static) instead!)
+(PS: you should just use `cgr.dev/chainguard/static` instead!)
 
 Build and pull an image containing `nginx`:
 
 ```
-docker pull apko.kontain.me/alpine-baselayout/nginx
+docker pull apko.kontain.me/wolfi-baselayout/nginx
 ```
+
+In the above examples, packages are provided by the [Wolfi](https://wolfi.dev/os) distro.
 
 You can also specify the URL of an image config YAML to fetch, parse and build, if `url` is the first element in the path:
 

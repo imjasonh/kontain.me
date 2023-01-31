@@ -66,14 +66,14 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		digest := parts[len(parts)-1]
 		serve.Blob(w, r, digest)
 	case strings.Contains(path, "/manifests/"):
-		s.serveKoManifest(w, r)
+		s.serveApkoManifest(w, r)
 	default:
 		http.Error(w, "Not found", http.StatusNotFound)
 	}
 }
 
-// apko.kontain.me/alpine-baselayout/nginx -> apko build and serve
-func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
+// apko.kontain.me/wolfi-baselayout/nginx -> apko build and serve
+func (s *server) serveApkoManifest(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	path := strings.TrimPrefix(r.URL.Path, "/v2/")
 	parts := strings.Split(path, "/")
@@ -122,7 +122,9 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 		if err := yaml.NewDecoder(strings.NewReader(fmt.Sprintf(`
 contents:
   repositories:
-  - https://dl-cdn.alpinelinux.org/alpine/edge/main # TODO: other repos?
+  - https://packages.wolfi.dev/os
+  keyring:
+  - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
   packages: [%s]
 `, strings.Join(packages, ",")))).Decode(&ic); err != nil {
 			s.error.Printf("ERROR (parse generated IC): %s", err)
