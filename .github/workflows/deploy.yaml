@@ -24,7 +24,7 @@ jobs:
     - uses: imjasonh/setup-ko@v0.6
       env:
         KO_DOCKER_REPO: gcr.io/kontaindotme
-    - uses: imjasonh/setup-crane@v0.1
+    - uses: imjasonh/setup-crane@v0.3
 
     # Setup OIDC->SA auth
     - uses: google-github-actions/auth@v0
