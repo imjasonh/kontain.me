@@ -14,16 +14,15 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      KO_DOCKER_REPO=gcr.io/kontaindotme
     steps:
     - uses: actions/checkout@v3
 
-    # Install tools.
     - uses: actions/setup-go@v2
       with:
-        go-version: 1.18
-    - uses: imjasonh/setup-ko@v0.6
-      env:
-        KO_DOCKER_REPO: gcr.io/kontaindotme
+        go-version: 1.20.x
+    - uses: hashicorp/setup-terraform@v2
     - uses: imjasonh/setup-crane@v0.1
 
     # Setup OIDC->SA auth
@@ -35,11 +34,20 @@ jobs:
     - uses: google-github-actions/setup-gcloud@v0.6.0
       with:
         project_id: kontaindotme
-        install_components: beta
 
-    # Deploy and test.
-    - run: ./deploy.sh
-      env:
-        KOCACHE: ~/ko
+    - name: Terraform Plan
+      run: |
+        cat > terraform.tfvars <<EOF
+        project_id = "${{ env.PROJECT_ID }}"
+        EOF
+
+        terraform init
+        terraform plan -input=false -lock=false -out=plan.tmp
+        terraform show -no-color plan.tmp
+
+    - name: Terraform Apply
+      if: ${{ github.event_name == 'push' }}
+      run: terraform apply -auto-approve -input=false plan.tmp
+
     - run: ./test.sh
-    
+
