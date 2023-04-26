@@ -10,6 +10,7 @@ terraform {
 }
 
 resource "ko_build" "image" {
+  repo       = "gcr.io/${var.project_id}/${var.name}"
   importpath = "github.com/imjasonh/kontain.me/cmd/${var.name}"
 }
 
@@ -41,7 +42,17 @@ resource "google_cloud_run_service" "service" {
       }
     }
   }
+
+  depends_on = [
+    google_project_service.run-api,
+  ]
 }
+// Enable Cloud Run API.
+resource "google_project_service" "run-api" {
+  project = var.project_id
+  service = "run.googleapis.com"
+}
+
 
 data "google_iam_policy" "noauth" {
   binding {
@@ -74,10 +85,10 @@ resource "google_cloud_run_domain_mapping" "mapping" {
 
 resource "google_dns_record_set" "dns-record" {
   name = "${var.name}.${var.domain}."
-  type = "CNAME"
+  type = google_cloud_run_domain_mapping.mapping.status[0].resource_records[0].type
   ttl  = 300
 
   managed_zone = var.dns_zone
 
-  rrdatas = ["ghs.googlehosted.com."]
+  rrdatas = [google_cloud_run_domain_mapping.mapping.status[0].resource_records[0].rrdata]
 }

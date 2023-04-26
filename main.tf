@@ -10,7 +10,7 @@ variable "project_id" {
 variable "location" {
   type        = string
   description = "The location of the Cloud Run service."
-  default     = "us-central1"
+  default     = "us-east4"
 }
 
 variable "domain" {
@@ -57,6 +57,16 @@ resource "google_dns_managed_zone" "zone" {
 
   name     = "kontainme-zone"
   dns_name = "${var.domain}."
+
+  depends_on = [
+    google_project_service.dns-api,
+  ]
+}
+
+// Enable Cloud DNS API.
+resource "google_project_service" "dns-api" {
+  project = var.project_id
+  service = "dns.googleapis.com"
 }
 
 variable "dns_zone" {
