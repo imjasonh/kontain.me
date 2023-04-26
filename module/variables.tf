@@ -8,6 +8,11 @@ variable "name" {
   description = "The name of the Cloud Run service."
 }
 
+variable "base_image" {
+  type        = string
+  description = "The base image to use for the Cloud Run service."
+}
+
 variable "domain" {
   type        = string
   description = "The domain to map the Cloud Run service to."

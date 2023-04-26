@@ -12,6 +12,7 @@ terraform {
 resource "ko_build" "image" {
   repo       = "gcr.io/${var.project_id}/${var.name}"
   importpath = "github.com/imjasonh/kontain.me/cmd/${var.name}"
+  base_image = var.base_image
 }
 
 resource "google_cloud_run_service" "service" {
@@ -47,12 +48,12 @@ resource "google_cloud_run_service" "service" {
     google_project_service.run-api,
   ]
 }
+
 // Enable Cloud Run API.
 resource "google_project_service" "run-api" {
   project = var.project_id
   service = "run.googleapis.com"
 }
-
 
 data "google_iam_policy" "noauth" {
   binding {
