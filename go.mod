@@ -11,7 +11,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-containerregistry v0.14.1-0.20230409045903-ed5c185df419
 	github.com/google/go-github/v32 v32.1.0
-	github.com/google/ko v0.12.0
+	github.com/google/ko v0.13.0
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
 	github.com/tmc/dot v0.0.0-20210901225022-f9bc17da75c0
 	golang.org/x/mod v0.10.0
@@ -71,7 +71,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
-	github.com/letsencrypt/boulder v0.0.0-20230424215918-97aa50977fb5 // indirect
+	github.com/letsencrypt/boulder v0.0.0-20230426153009-25cae29f7067 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
@@ -83,7 +83,6 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/psanford/memfs v0.0.0-20230130182539-4dbf7e3e865e // indirect
 	github.com/sergi/go-diff v1.3.1 // indirect
-	github.com/sigstore/cosign v1.13.1 // indirect
 	github.com/sigstore/cosign/v2 v2.0.2 // indirect
 	github.com/sigstore/rekor v1.1.0 // indirect
 	github.com/sigstore/sigstore v1.6.3 // indirect

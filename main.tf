@@ -138,14 +138,16 @@ locals {
       ram                   = "4Gi"
       container_concurrency = 1
       timeout_seconds       = 900 # 15m
-      basecr_image            = "gcr.io/kaniko-project/executor:debug"
+      base_image            = "gcr.io/kaniko-project/executor:debug"
     },
     "ko" : {
       cpu                   = 2
       ram                   = "4Gi"
       container_concurrency = 1
       timeout_seconds       = 900 # 15m
-      base_image            = "cgr.dev/chainguard/go:latest-dev"
+      base_image            = "golang"
+      # After https://github.com/chainguard-images/images/pull/511
+      #base_image            = "cgr.dev/chainguard/go:latest-dev"
     },
     "mirror" : {
       cpu                   = 2
