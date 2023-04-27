@@ -166,7 +166,6 @@ func (s *server) build(ctx context.Context, ic types.ImageConfiguration) (v1.Ima
 
 	bc, err := build.New(wd,
 		build.WithImageConfiguration(ic),
-		build.WithProot(true),
 		build.WithArch(amd64), // TODO: multiarch
 		build.WithBuildDate(time.Time{}.Format(time.RFC3339)),
 		build.WithAssertions(build.RequireGroupFile(true), build.RequirePasswdFile(true)))
