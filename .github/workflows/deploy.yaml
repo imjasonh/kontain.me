@@ -43,14 +43,13 @@ jobs:
       run: |
         terraform init
         terraform plan -input=false -lock=false -out=plan.tmp
-        terraform graph -plan=plan.tmp > plan.dot
-        dot -Tpng plan.dot > plan.png
+        terraform graph -plan=plan.tmp | dot -Tpng > plan.png
 
     - uses: actions/upload-artifact@v3
       if: ${{ failure() || success() }}
       with:
-        name: plan
-        path: plan.*
+        name: plan.png
+        path: plan.png
 
     - name: Terraform Apply
       if: ${{ github.event_name == 'push' }}
