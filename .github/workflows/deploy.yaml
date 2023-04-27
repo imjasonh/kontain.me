@@ -16,6 +16,8 @@ jobs:
       contents: read
     env:
       KO_DOCKER_REPO: gcr.io/kontaindotme
+      TF_VAR_domain: kontain.me
+      TF_VAR_project_id: kontaindotme
     steps:
     - uses: actions/checkout@v3
 
@@ -37,9 +39,6 @@ jobs:
 
     - name: Terraform Plan
       run: |
-        TF_VAR_domain=kontain.me
-        TF_VAR_project_id=kontaindotme
-
         terraform init
         terraform plan -input=false -lock=false -out=plan.tmp
         terraform show -no-color plan.tmp
