@@ -15,7 +15,7 @@ jobs:
       id-token: write
       contents: read
     env:
-      KO_DOCKER_REPO=gcr.io/kontaindotme
+      KO_DOCKER_REPO: gcr.io/kontaindotme
     steps:
     - uses: actions/checkout@v3
 
