@@ -47,9 +47,10 @@ jobs:
         dot -Tpng plan.dot > plan.png
 
     - uses: actions/upload-artifact@v3
+      if: ${{ failure() || success() }}
       with:
-        name: plan.png
-        path: plan.png
+        name: plan
+        path: plan.*
 
     - name: Terraform Apply
       if: ${{ github.event_name == 'push' }}
