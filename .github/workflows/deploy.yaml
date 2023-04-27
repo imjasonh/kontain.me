@@ -37,9 +37,8 @@ jobs:
 
     - name: Terraform Plan
       run: |
-        cat > terraform.tfvars <<EOF
-        project_id = "${{ env.PROJECT_ID }}"
-        EOF
+        TF_VAR_domain=kontain.me
+        TF_VAR_project_id=kontaindotme
 
         terraform init
         terraform plan -input=false -lock=false -out=plan.tmp
