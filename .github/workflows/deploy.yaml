@@ -26,6 +26,8 @@ jobs:
         go-version: '1.20.x'
     - uses: hashicorp/setup-terraform@v2
     - uses: imjasonh/setup-crane@v0.1
+    - uses: ts-graphviz/setup-graphviz@v1
+
 
     # Setup OIDC->SA auth
     - uses: google-github-actions/auth@v0
@@ -41,7 +43,13 @@ jobs:
       run: |
         terraform init
         terraform plan -input=false -lock=false -out=plan.tmp
-        terraform show -no-color plan.tmp
+        terraform graph -plan=plan.tmp > plan.dot
+        dot -Tpng plan.dot > plan.png
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: plan.png
+        path: plan.png
 
     - name: Terraform Apply
       if: ${{ github.event_name == 'push' }}
