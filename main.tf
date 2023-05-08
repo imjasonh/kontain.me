@@ -40,6 +40,13 @@ resource "google_storage_bucket" "bucket" {
       type = "Delete"
     }
   }
+
+  # Allow
+  cors {
+    origin          = ["*"]
+    method          = ["GET", "HEAD"]
+    response_header = ["*"]
+  }
 }
 
 # Make the bucket publicly readable.
