@@ -2,8 +2,6 @@ module github.com/imjasonh/kontain.me
 
 go 1.20
 
-replace github.com/awslabs/amazon-ecr-credential-helper/ecr-login => github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20220216180153-3d7835abdf40
-
 require (
 	chainguard.dev/apko v0.7.3
 	cloud.google.com/go/compute/metadata v0.2.3
