@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -19,6 +19,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/ko/pkg/build"
+	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/zip"
@@ -29,32 +30,26 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		log.Fatalf("serve.NewStorage: %v", err)
+		slog.Error("serve.NewStorage", "err", err)
+		os.Exit(1)
 	}
-	http.Handle("/v2/", &server{
-		info:    log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
-		storage: st,
-	})
+	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/ko", http.StatusSeeOther))
 
-	log.Println("Starting...")
+	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+		slog.Info("Defaulting port", "port", port)
 	}
-	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.Info("Listening", "port", port)
+	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
-type server struct {
-	info, error *log.Logger
-	storage     *serve.Storage
-}
+type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.info.Println("handler:", r.Method, r.URL)
+	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
@@ -91,7 +86,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(tagOrDigest, "sha256:") {
 		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
 		if err != nil {
-			s.error.Printf("ERROR (storage.BlobExists): %s", err)
+			slog.Error("storage.BlobExists", "err", err)
 			serve.Error(w, serve.ErrNotFound)
 			return
 		}
@@ -109,7 +104,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	// whether the path is a module path that returns a version.
 	module, version, err := walkUp(ctx, ip, tagOrDigest)
 	if err != nil {
-		s.error.Printf("ERROR (walkUp): %s", err)
+		slog.Error("walkUp", "err", err)
 		serve.Error(w, err)
 		return
 	}
@@ -117,7 +112,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	// Check if we've already got a manifest for this importpath + resolved version.
 	ck := cacheKey(ip, version)
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-		s.info.Println("serving cached manifest:", ck)
+		slog.Info("serving cached manifest", "ck", ck)
 		serve.Blob(w, r, ck)
 		return
 	}
@@ -126,21 +121,21 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	// Pull the module source from the module proxy and build it.
 	br, err := s.fetchAndBuild(ctx, module, version, filepath)
 	if err != nil {
-		s.error.Printf("ERROR (fetchAndBuild): %s", err)
+		slog.Error("fetchAndBuild", "err", err)
 		serve.Error(w, err)
 		return
 	}
 
 	if idx, ok := br.(v1.ImageIndex); ok {
 		if err := s.storage.ServeIndex(w, r, idx, ck); err != nil {
-			s.error.Printf("ERROR (storage.ServeIndex): %v", err)
+			slog.Error("storage.ServeIndex", "err", err)
 			serve.Error(w, err)
 		}
 		return
 	}
 	if img, ok := br.(v1.Image); ok {
 		if err := s.storage.ServeManifest(w, r, img, ck); err != nil {
-			s.error.Printf("ERROR (storage.ServeManifest): %v", err)
+			slog.Error("storage.ServeManifest", "err", err)
 			serve.Error(w, err)
 		}
 		return
@@ -162,7 +157,7 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, b
 	f, err := os.Open(".ko.yaml")
 	if err == nil {
 		defer f.Close()
-		s.info.Printf("Found .ko.yaml")
+		slog.Info("Found .ko.yaml")
 		var y struct {
 			DefaultBaseImage   string            `yaml:"defaultBaseImage"`
 			BaseImageOverrides map[string]string `yaml:"baseImageOverrides"`
@@ -177,7 +172,7 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, b
 			base = bio
 		}
 	}
-	s.info.Printf("Using base image %q for %s", base, ip)
+	slog.Info("Using base image", "base", base, "ip", ip)
 
 	ref, err := name.ParseReference(base)
 	if err != nil {
@@ -189,11 +184,11 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, b
 	}
 	switch d.MediaType {
 	case types.DockerManifestList, types.OCIImageIndex:
-		s.info.Printf("Base image %q is manifest list", base)
+		slog.Info("Base image is index", "base", base)
 		idx, err := remote.Index(ref)
 		return ref, idx, err
 	case types.DockerManifestSchema2, types.OCIManifestSchema1:
-		s.info.Printf("Base image %q is image", base)
+		slog.Info("Base image is image", "base", base)
 		img, err := remote.Image(ref)
 		return ref, img, err
 	default:
@@ -306,6 +301,6 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 	if err := g.IsSupportedReference(ip); err != nil {
 		return nil, err
 	}
-	s.info.Printf("ko build %s...", ip)
+	slog.Info("ko build", "ip", ip)
 	return g.Build(ctx, ip)
 }

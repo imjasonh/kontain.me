@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,32 +15,28 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/imjasonh/gcpslog"
 	"github.com/tmc/dot"
 )
 
 func main() {
-	http.Handle("/", http.FileServer(http.Dir("/var/run/ko")))
-	http.Handle("/viz", &server{
-		info:  log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error: log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
-	})
-	log.Println("Starting...")
+	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{}))
+
+	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+		slog.Info("Defaulting port", "port", port)
 	}
-	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.Info("Listening", "port", port)
+	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
-type server struct {
-	info, error *log.Logger
-}
+type server struct{}
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	s.info.Println("handler:", r.Method, r.URL)
+	slog.Info("handler", "method", r.Method, "url", r.URL)
 	if r.Method != http.MethodPost {
 		http.Error(w, "must be post", http.StatusMethodNotAllowed)
 		return

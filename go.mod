@@ -1,6 +1,6 @@
 module github.com/imjasonh/kontain.me
 
-go 1.20
+go 1.21.0
 
 require (
 	chainguard.dev/apko v0.7.3
@@ -11,6 +11,7 @@ require (
 	github.com/google/go-github/v32 v32.1.0
 	github.com/google/ko v0.13.0
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
+	github.com/imjasonh/gcpslog v0.0.0-20231112043542-653be1bb0599
 	github.com/tmc/dot v0.0.0-20210901225022-f9bc17da75c0
 	golang.org/x/mod v0.10.0
 	golang.org/x/oauth2 v0.7.0

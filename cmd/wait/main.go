@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -12,42 +13,36 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/v1/random"
 	"github.com/imjasonh/delay/pkg/delay"
+	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 )
 
 const queueName = "wait-queue"
 
 func main() {
-	delay.Init()
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		log.Fatalf("serve.NewStorage: %v", err)
+		slog.Error("serve.NewStorage", "err", err)
+		os.Exit(1)
 	}
-	http.Handle("/v2/", &server{
-		info:    log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
-		storage: st,
-	})
-	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/wait", http.StatusSeeOther))
+	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
+	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/random", http.StatusSeeOther))
 
-	log.Println("Starting...")
+	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+		slog.Info("Defaulting port", "port", port)
 	}
-	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.Info("Listening", "port", port)
+	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
-type server struct {
-	info, error *log.Logger
-	storage     *serve.Storage
-}
+type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.info.Println("handler:", r.Method, r.URL)
+	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
@@ -89,7 +84,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(tagOrDigest, "sha256:") {
 		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
 		if err != nil {
-			s.error.Printf("ERROR (storage.BlobExists): %s", err)
+			slog.Error("storage.BlobExists", "err", err)
 			serve.Error(w, serve.ErrNotFound)
 			return
 		}
@@ -106,7 +101,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	// The image has already been built; serve it.
 	ck := cacheKey(name)
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-		s.info.Printf("blob %q exists, serving", ck)
+		slog.Info("blob exists", "ck", ck)
 		serve.Blob(w, r, ck)
 		return
 	}
@@ -115,7 +110,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	// contents.
 	phn := fmt.Sprintf("placeholder-%s", ck)
 	if _, err := s.storage.BlobExists(ctx, phn); err == nil {
-		s.info.Printf("placeholder %q exists", phn)
+		slog.Info("placeholder exists", "phn", phn)
 		serve.Error(w, fmt.Errorf("waiting for image..."))
 		return
 	}
@@ -127,30 +122,30 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	dur, err := time.ParseDuration(tag)
 	if err != nil {
-		s.error.Println(err)
+		slog.Error("time.ParseDuration", "tag", tag, "err", err)
 		serve.Error(w, err)
 		return
 	}
 	if dur > time.Hour {
 		err := fmt.Errorf("duration > 1h (%s)", dur)
-		s.error.Println(err)
+		slog.Error("duration > 1h", "tag", tag, "err", err)
 		serve.Error(w, err)
 		return
 	}
-	s.info.Printf("generating random image %q in %s", ck, dur)
+	slog.Info("generating random image", "ck", ck, "dur", dur)
 
 	// Enqueue the task for later.
 	if err := laterFunc.Call(ctx, r, queueName,
 		delay.WithArgs(ck),
 		delay.WithDelay(dur)); err != nil {
-		s.error.Printf("ERROR (laterFunc.Call): %v", err)
+		slog.Error("laterFunc.Call", "err", err)
 		serve.Error(w, err)
 		return
 	}
 
 	// Write the placeholder object.
 	if err := s.storage.WriteObject(ctx, phn, fmt.Sprintf("serving image at %s", time.Now().Add(dur))); err != nil {
-		s.error.Printf("ERROR (storage.WriteObject): %v", err)
+		slog.Error("storage.WriteObject", "err", err)
 		serve.Error(w, err)
 		return
 	}

@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -12,6 +12,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 )
 
@@ -19,32 +20,26 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		log.Fatalf("serve.NewStorage: %v", err)
+		slog.Error("serve.NewStorage", "err", err)
+		os.Exit(1)
 	}
-	http.Handle("/v2/", &server{
-		info:    log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
-		storage: st,
-	})
+	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/mirror", http.StatusSeeOther))
 
-	log.Println("Starting...")
+	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+		slog.Info("Defaulting port", "port", port)
 	}
-	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.Info("Listening", "port", port)
+	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
-type server struct {
-	info, error *log.Logger
-	storage     *serve.Storage
-}
+type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.info.Println("handler:", r.Method, r.URL)
+	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")                 // Allow CORS requests from any domain.
@@ -94,7 +89,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 
 	ref, err := name.ParseReference(refstr)
 	if err != nil {
-		s.error.Printf("ERROR (ParseReference(%q)): %v", refstr, err)
+		slog.Error("name.ParseReference", "ref", refstr, "err", err)
 		serve.Error(w, err)
 		return
 	}
@@ -121,7 +116,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	// blob.
 	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
-		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
+		slog.Error("remote.Head", "ref", ref, "err", err)
 		var desci interface {
 			Digest() (v1.Hash, error)
 			Size() (int64, error)
@@ -130,10 +125,10 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		// HEAD failed, let's figure out if it was an index or image by doing GETs.
 		idx, err = remote.Index(ref, remote.WithContext(ctx))
 		if err != nil {
-			s.error.Printf("ERROR (remote.Index): %v", err)
+			slog.Error("remote.Index", "ref", ref, "err", err)
 			img, err = remote.Image(ref, remote.WithContext(ctx))
 			if err != nil {
-				s.error.Printf("ERROR (remote.Image): %v", err)
+				slog.Error("remote.Image", "ref", ref, "err", err)
 				serve.Error(w, err)
 				return
 			}
@@ -144,19 +139,19 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 
 		h, err := desci.Digest()
 		if err != nil {
-			s.error.Printf("ERROR (desc.Digest): %v", err)
+			slog.Error("Digest()", "ref", ref, "err", err)
 			serve.Error(w, err)
 			return
 		}
 		sz, err := desci.Size()
 		if err != nil {
-			s.error.Printf("ERROR (desc.Size): %v", err)
+			slog.Error("Size()", "ref", ref, "err", err)
 			serve.Error(w, err)
 			return
 		}
 		mt, err := desci.MediaType()
 		if err != nil {
-			s.error.Printf("ERROR (desc.MediaType): %v", err)
+			slog.Error("MediaType()", "ref", ref, "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -176,7 +171,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Blob(w, r, d.Digest.String())
 		return
 	} else {
-		s.info.Printf("INFO (serve.BlobExists(%q)): %v", d.Digest, err)
+		slog.Info("BlobExists", "digest", d.Digest.String(), "err", err)
 	}
 
 	// Blob doesn't exist yet. Try to get the image manifest+layers
@@ -188,13 +183,13 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 			// the image index.
 			idx, err = remote.Index(ref, remote.WithContext(ctx))
 			if err != nil {
-				s.error.Printf("ERROR (remote.Index): %v", err)
+				slog.Error("remote.Index", "ref", ref, "err", err)
 				serve.Error(w, err)
 				return
 			}
 		}
 		if err := s.storage.ServeIndex(w, r, idx); err != nil {
-			s.error.Printf("ERROR (storage.ServeIndex): %v", err)
+			slog.Error("storage.ServeIndex", "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -204,19 +199,19 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 			// manifest.
 			img, err = remote.Image(ref, remote.WithContext(ctx))
 			if err != nil {
-				s.error.Printf("ERROR (remote.Image): %v", err)
+				slog.Error("remote.Image", "ref", ref, "err", err)
 				serve.Error(w, err)
 				return
 			}
 		}
 		if err := s.storage.ServeManifest(w, r, img); err != nil {
-			s.error.Printf("ERROR (storage.ServeManifest): %v", err)
+			slog.Error("storage.ServeManifest", "err", err)
 			serve.Error(w, err)
 			return
 		}
 	default:
 		err := fmt.Errorf("unknown media type: %s", d.MediaType)
-		s.error.Printf("ERROR (serveMirrorManifest): %v", err)
+		slog.Error("unknown media type", "ref", refstr, "err", err)
 		serve.Error(w, err)
 	}
 }

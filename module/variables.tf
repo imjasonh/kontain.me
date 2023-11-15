@@ -26,6 +26,7 @@ variable "dns_zone" {
 variable "location" {
   type        = string
   description = "The location of the Cloud Run service."
+  default     = "us-east4"
 }
 
 variable "service_account_name" {

@@ -1,11 +1,7 @@
 terraform {
   required_providers {
-    ko = {
-      source = "ko-build/ko"
-    }
-    google = {
-      source = "hashicorp/google"
-    }
+    ko     = { source = "ko-build/ko" }
+    google = { source = "hashicorp/google" }
   }
 }
 
@@ -43,24 +39,12 @@ resource "google_cloud_run_service" "service" {
       }
     }
   }
-
-  depends_on = [
-    google_project_service.run-api,
-  ]
-}
-
-// Enable Cloud Run API.
-resource "google_project_service" "run-api" {
-  project = var.project_id
-  service = "run.googleapis.com"
 }
 
 data "google_iam_policy" "noauth" {
   binding {
-    role = "roles/run.invoker"
-    members = [
-      "allUsers",
-    ]
+    role    = "roles/run.invoker"
+    members = ["allUsers"]
   }
 }
 
@@ -92,4 +76,12 @@ resource "google_dns_record_set" "dns-record" {
   managed_zone = var.dns_zone
 
   rrdatas = [google_cloud_run_domain_mapping.mapping.status[0].resource_records[0].rrdata]
+}
+
+locals { test_script = file("${path.module}/../cmd/${var.name}/test.sh") }
+
+resource "null_resource" "test" {
+  count      = fileexists(local.test_script) != "" ? 1 : 0
+  depends_on = [google_dns_record_set.dns-record]
+  provisioner "local-exec" { command = local.test_script }
 }

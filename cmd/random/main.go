@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/random"
+	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 )
 
@@ -18,32 +19,26 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		log.Fatalf("serve.NewStorage: %v", err)
+		slog.Error("serve.NewStorage", "err", err)
+		os.Exit(1)
 	}
-	http.Handle("/v2/", &server{
-		info:    log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
-		storage: st,
-	})
+	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/random", http.StatusSeeOther))
 
-	log.Println("Starting...")
+	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+		slog.Info("Defaulting port", "port", port)
 	}
-	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.Info("Listening", "port", port)
+	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
-type server struct {
-	info, error *log.Logger
-	storage     *serve.Storage
-}
+type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.info.Println("handler:", r.Method, r.URL)
+	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
@@ -79,7 +74,7 @@ func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(tagOrDigest, "sha256:") {
 		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
 		if err != nil {
-			s.error.Printf("ERROR (storage.BlobExists): %s", err)
+			slog.Error("storage.BlobExists", "err", err)
 			serve.Error(w, serve.ErrNotFound)
 			return
 		}
@@ -99,17 +94,17 @@ func (s *server) serveRandomManifest(w http.ResponseWriter, r *http.Request) {
 		num, _ = strconv.ParseInt(all[1], 10, 64)
 		size, _ = strconv.ParseInt(all[2], 10, 64)
 	}
-	s.info.Printf("generating random image with %d layers of %d bytes", num, size)
+	slog.Info("generating random image", "layers", num, "size", size)
 
 	// Generate a random image.
 	img, err := random.Image(size, num)
 	if err != nil {
-		s.error.Printf("ERROR (random.Image): %s", err)
+		slog.Error("random.Image", "err", err)
 		serve.Error(w, err)
 		return
 	}
 	if err := s.storage.ServeManifest(w, r, img); err != nil {
-		s.error.Printf("ERROR (storage.ServeManifest): %v", err)
+		slog.Error("storage.ServeManifest", "err", err)
 		serve.Error(w, err)
 		return
 	}

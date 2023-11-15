@@ -11,14 +11,10 @@ These include:
 * [`mirror.kontain.me`](./cmd/mirror), which pulls and caches images from other registries.
 * [`flatten.kontain.me`](./cmd/flatten), which pulls and flattens images from other registries,
   so they contain only one layer.
-* [`kaniko.kontain.me`](./cmd/kaniko), which builds a GitHub repo using
-  [Kaniko](https://github.com/GoogleContainerTools/kaniko).
 * [`ko.kontain.me`](./cmd/ko), which builds a Go binary into a container image using
   [`ko`](https://github.com/google/ko).
 * [`apko.kontain.me`](./cmd/apko), which builds a minimal base image containing
   APK packages, using [`apko`](https://apko.dev).
-* [`buildpack.kontain.me`](./cmd/buildpack), which builds a GitHub repo using [CNCF
-  Buildpacks](https://buildpacks.io).
 * [`wait.kontain.me`](./cmd/wait), which enqueues a background task to serve a
   random image after some amount of time.
 

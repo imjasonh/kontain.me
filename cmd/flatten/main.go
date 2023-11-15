@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 	"golang.org/x/sync/errgroup"
 )
@@ -24,32 +25,26 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		log.Fatalf("serve.NewStorage: %v", err)
+		slog.Error("serve.NewStorage", "err", err)
+		os.Exit(1)
 	}
-	http.Handle("/v2/", &server{
-		info:    log.New(os.Stdout, "I ", log.Ldate|log.Ltime|log.Lshortfile),
-		error:   log.New(os.Stderr, "E ", log.Ldate|log.Ltime|log.Lshortfile),
-		storage: st,
-	})
+	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/flatten", http.StatusSeeOther))
 
-	log.Println("Starting...")
+	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		log.Printf("Defaulting to port %s", port)
+		slog.Info("Defaulting port", "port", port)
 	}
-	log.Printf("Listening on port %s", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.Info("Listening", "port", port)
+	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
-type server struct {
-	info, error *log.Logger
-	storage     *serve.Storage
-}
+type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.info.Println("handler:", r.Method, r.URL)
+	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
@@ -99,7 +94,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 
 	ref, err := name.ParseReference(refstr)
 	if err != nil {
-		s.error.Printf("ERROR (ParseReference(%q)): %v", refstr, err)
+		slog.Error("name.ParseReference", "ref", refstr, "err", err)
 		serve.Error(w, err)
 		return
 	}
@@ -111,15 +106,15 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	// Determine whether the ref is for an image or index.
 	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
-		s.error.Printf("ERROR (remote.Head(%q)): %v", ref, err)
+		slog.Error("remote.Head", "ref", refstr, "err", err)
 		var h v1.Hash
 		// HEAD failed, let's figure out if it was an index or image by doing GETs.
 		idx, err = remote.Index(ref, remote.WithContext(ctx))
 		if err != nil {
-			s.error.Printf("ERROR (remote.Index): %v", err)
+			slog.Error("remote.Index", "ref", refstr, "err", err)
 			img, err = remote.Image(ref, remote.WithContext(ctx))
 			if err != nil {
-				s.error.Printf("ERROR (remote.Image): %v", err)
+				slog.Error("remote.Image", "ref", refstr, "err", err)
 				serve.Error(w, err)
 				return
 			}
@@ -131,7 +126,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			h, err = img.Digest()
 		}
 		if err != nil {
-			s.error.Printf("ERROR (Digest): %v", err)
+			slog.Error("Digest()", "ref", refstr, "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -140,14 +135,14 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		// before), and if so serve it directly.
 		ck = cacheKey(h.String())
 		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-			s.info.Println("serving cached manifest:", ck)
+			slog.Info("serving cached manifest", "ck", ck)
 			serve.Blob(w, r, ck)
 			return
 		}
 	} else {
 		if !acceptableMediaTypes[d.MediaType] {
 			err = fmt.Errorf("unknown media type: %s", d.MediaType)
-			s.error.Printf("ERROR (serveFlattenManifest): %v", err)
+			slog.Error("unknown media type", "ref", refstr, "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -156,7 +151,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		// directly.
 		ck = cacheKey(d.Digest.String())
 		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-			s.info.Println("serving cached manifest:", ck)
+			slog.Info("serving cached manifest", "ck", ck)
 			serve.Blob(w, r, ck)
 			return
 		}
@@ -166,7 +161,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			idx, err = remote.Index(ref, remote.WithContext(ctx))
 			if err != nil {
 				err = fmt.Errorf("remote.Index: %v", err)
-				s.error.Printf("ERROR (serveFlattenManifest): %v", err)
+				slog.Error("remote.Index", "ref", refstr, "err", err)
 				serve.Error(w, err)
 				return
 			}
@@ -174,7 +169,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			img, err = remote.Image(ref, remote.WithContext(ctx))
 			if err != nil {
 				err = fmt.Errorf("remote.Image: %v", err)
-				s.error.Printf("ERROR (serveFlattenManifest): %v", err)
+				slog.Error("remote.Image", "ref", refstr, "err", err)
 				serve.Error(w, err)
 				return
 			}
@@ -189,7 +184,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := s.storage.ServeIndex(w, r, fidx, ck); err != nil {
-			s.error.Printf("ERROR (storage.ServeIndex): %v", err)
+			slog.Error("storage.ServeIndex", "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -204,7 +199,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := s.storage.ServeManifest(w, r, fimg, ck); err != nil {
-			s.error.Printf("ERROR (storage.ServeManifest): %v", err)
+			slog.Error("storage.ServeManifest", "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -216,7 +211,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
 	im, err := idx.IndexManifest()
 	if err != nil {
-		s.error.Printf("ERROR (index.IndexManifest): %v", err)
+		slog.Error("idx.IndexManifest", "err", err)
 		return nil, err
 	}
 	// Flatten each image in the manifest.
@@ -227,7 +222,7 @@ func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
 		g.Go(func() error {
 			img, err := idx.Image(m.Digest)
 			if err != nil {
-				s.error.Printf("ERROR (idx.Image): %v", err)
+				slog.Error("idx.Image", "err", err)
 				return err
 			}
 			fimg, err := s.flatten(img)
@@ -236,7 +231,7 @@ func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
 			}
 			m.Digest, err = fimg.Digest()
 			if err != nil {
-				s.error.Printf("ERROR (fimg.Digest): %v", err)
+				slog.Error("fimg.Digest", "err", err)
 				return err
 			}
 			adds[i] = mutate.IndexAddendum{
@@ -247,7 +242,7 @@ func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
 		})
 	}
 	if err := g.Wait(); err != nil {
-		s.error.Printf("ERROR (flattenIndex): %v", err)
+		slog.Error("g.Wait", "err", err)
 		return nil, err
 	}
 	return mutate.AppendManifests(empty.Index, adds...), nil
@@ -256,24 +251,24 @@ func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
 func (s *server) flatten(img v1.Image) (v1.Image, error) {
 	l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return mutate.Extract(img), nil })
 	if err != nil {
-		s.error.Printf("ERROR (tarball.LayerFromOpener): %v", err)
+		slog.Error("tarball.LayerFromOpener", "err", err)
 		return nil, err
 	}
 	fimg, err := mutate.AppendLayers(empty.Image, l)
 	if err != nil {
-		s.error.Printf("ERROR (mutate.AppendLayers): %v", err)
+		slog.Error("mutate.AppendLayers", "err", err)
 		return nil, err
 	}
 
 	// Copy over basic information from original config file.
 	ocf, err := img.ConfigFile()
 	if err != nil {
-		s.error.Printf("ERROR (img.ConfigFile): %v", err)
+		slog.Error("img.ConfigFile", "err", err)
 		return nil, err
 	}
 	ncf, err := fimg.ConfigFile()
 	if err != nil {
-		s.error.Printf("ERROR (empty.Image.ConfigFile): %v", err)
+		slog.Error("fimg.ConfigFile", "err", err)
 		return nil, err
 	}
 	cf := ncf.DeepCopy()
