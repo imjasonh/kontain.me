@@ -21,19 +21,19 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - uses: actions/setup-go@v2
+    - uses: actions/setup-go@v4
       with:
         go-version: '1.20.x'
     - uses: hashicorp/setup-terraform@v2
-    - uses: imjasonh/setup-crane@v0.1
+    - uses: imjasonh/setup-crane@v0.3
 
     # Setup OIDC->SA auth
-    - uses: google-github-actions/auth@v0
+    - uses: google-github-actions/auth@v1
       id: auth
       with:
         workload_identity_provider: 'projects/7577580991/locations/global/workloadIdentityPools/gha-pool/providers/gha-provider'
         service_account: 'gha-deployer@kontaindotme.iam.gserviceaccount.com'
-    - uses: google-github-actions/setup-gcloud@v0.6.0
+    - uses: google-github-actions/setup-gcloud@v1.1.1
       with:
         project_id: kontaindotme
 
