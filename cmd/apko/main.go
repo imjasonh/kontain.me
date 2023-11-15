@@ -26,26 +26,24 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		slog.Error("serve.NewStorage", "err", err)
+		slog.ErrorContext(ctx, "serve.NewStorage", "err", err)
 		os.Exit(1)
 	}
 	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/apko", http.StatusSeeOther))
 
-	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		slog.Info("Defaulting port", "port", port)
+		slog.InfoContext(ctx, "Defaulting port", "port", port)
 	}
-	slog.Info("Listening", "port", port)
-	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.InfoContext(ctx, "Listening...", "port", port)
+	slog.ErrorContext(ctx, "ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
 type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
@@ -80,7 +78,7 @@ func (s *server) serveApkoManifest(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(tagOrDigest, "sha256:") {
 		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
 		if err != nil {
-			slog.Error("storage.BlobExists", "err", err)
+			slog.ErrorContext(ctx, "storage.BlobExists", "err", err)
 			serve.Error(w, serve.ErrNotFound)
 			return
 		}
@@ -99,14 +97,14 @@ func (s *server) serveApkoManifest(w http.ResponseWriter, r *http.Request) {
 	if packages[0] == "url" {
 		resp, err := http.Get("https://" + strings.Join(packages[1:], "/"))
 		if err != nil {
-			slog.Error("http.Get", "err", err)
+			slog.ErrorContext(ctx, "http.Get", "err", err)
 			serve.Error(w, err)
 			return
 		}
 		defer resp.Body.Close()
 
 		if err := yaml.NewDecoder(resp.Body).Decode(&ic); err != nil {
-			slog.Error("yaml.Decode", "err", err)
+			slog.ErrorContext(ctx, "yaml.Decode", "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -122,7 +120,7 @@ contents:
   - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
   packages: [%s]
 `, strings.Join(packages, ",")))).Decode(&ic); err != nil {
-			slog.Error("yaml.Decode", "err", err)
+			slog.ErrorContext(ctx, "yaml.Decode", "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -131,7 +129,7 @@ contents:
 
 	// Check if we've already got a manifest for this set of packages.
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-		slog.Info("serving cached manifest", "ck", ck)
+		slog.InfoContext(ctx, "serving cached manifest", "ck", ck)
 		serve.Blob(w, r, ck)
 		return
 	}
@@ -139,13 +137,13 @@ contents:
 	// Build the image.
 	img, err := s.build(ctx, ic)
 	if err != nil {
-		slog.Error("build", "err", err)
+		slog.ErrorContext(ctx, "build", "err", err)
 		serve.Error(w, err)
 		return
 	}
 
 	if err := s.storage.ServeManifest(w, r, img, ck); err != nil {
-		slog.Error("storage.ServeManifest", "err", err)
+		slog.ErrorContext(ctx, "storage.ServeManifest", "err", err)
 		serve.Error(w, err)
 	}
 }

@@ -23,26 +23,24 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		slog.Error("serve.NewStorage", "err", err)
+		slog.ErrorContext(ctx, "serve.NewStorage", "err", err)
 		os.Exit(1)
 	}
 	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/random", http.StatusSeeOther))
 
-	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		slog.Info("Defaulting port", "port", port)
+		slog.InfoContext(ctx, "Defaulting port", "port", port)
 	}
-	slog.Info("Listening", "port", port)
-	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.InfoContext(ctx, "Listening...", "port", port)
+	slog.ErrorContext(ctx, "ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
 type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
@@ -84,7 +82,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(tagOrDigest, "sha256:") {
 		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
 		if err != nil {
-			slog.Error("storage.BlobExists", "err", err)
+			slog.ErrorContext(ctx, "storage.BlobExists", "err", err)
 			serve.Error(w, serve.ErrNotFound)
 			return
 		}
@@ -101,7 +99,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	// The image has already been built; serve it.
 	ck := cacheKey(name)
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-		slog.Info("blob exists", "ck", ck)
+		slog.InfoContext(ctx, "blob exists", "ck", ck)
 		serve.Blob(w, r, ck)
 		return
 	}
@@ -110,7 +108,7 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	// contents.
 	phn := fmt.Sprintf("placeholder-%s", ck)
 	if _, err := s.storage.BlobExists(ctx, phn); err == nil {
-		slog.Info("placeholder exists", "phn", phn)
+		slog.InfoContext(ctx, "placeholder exists", "phn", phn)
 		serve.Error(w, fmt.Errorf("waiting for image..."))
 		return
 	}
@@ -122,30 +120,30 @@ func (s *server) serveWaitManifest(w http.ResponseWriter, r *http.Request) {
 	}
 	dur, err := time.ParseDuration(tag)
 	if err != nil {
-		slog.Error("time.ParseDuration", "tag", tag, "err", err)
+		slog.ErrorContext(ctx, "time.ParseDuration", "tag", tag, "err", err)
 		serve.Error(w, err)
 		return
 	}
 	if dur > time.Hour {
 		err := fmt.Errorf("duration > 1h (%s)", dur)
-		slog.Error("duration > 1h", "tag", tag, "err", err)
+		slog.ErrorContext(ctx, "duration > 1h", "tag", tag, "err", err)
 		serve.Error(w, err)
 		return
 	}
-	slog.Info("generating random image", "ck", ck, "dur", dur)
+	slog.InfoContext(ctx, "generating random image", "ck", ck, "dur", dur)
 
 	// Enqueue the task for later.
 	if err := laterFunc.Call(ctx, r, queueName,
 		delay.WithArgs(ck),
 		delay.WithDelay(dur)); err != nil {
-		slog.Error("laterFunc.Call", "err", err)
+		slog.ErrorContext(ctx, "laterFunc.Call", "err", err)
 		serve.Error(w, err)
 		return
 	}
 
 	// Write the placeholder object.
 	if err := s.storage.WriteObject(ctx, phn, fmt.Sprintf("serving image at %s", time.Now().Add(dur))); err != nil {
-		slog.Error("storage.WriteObject", "err", err)
+		slog.ErrorContext(ctx, "storage.WriteObject", "err", err)
 		serve.Error(w, err)
 		return
 	}

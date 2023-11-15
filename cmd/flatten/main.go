@@ -25,26 +25,24 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		slog.Error("serve.NewStorage", "err", err)
+		slog.ErrorContext(ctx, "serve.NewStorage", "err", err)
 		os.Exit(1)
 	}
 	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/flatten", http.StatusSeeOther))
 
-	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		slog.Info("Defaulting port", "port", port)
+		slog.InfoContext(ctx, "Defaulting port", "port", port)
 	}
-	slog.Info("Listening", "port", port)
-	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.InfoContext(ctx, "Listening...", "port", port)
+	slog.ErrorContext(ctx, "ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
 type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
@@ -94,7 +92,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 
 	ref, err := name.ParseReference(refstr)
 	if err != nil {
-		slog.Error("name.ParseReference", "ref", refstr, "err", err)
+		slog.ErrorContext(ctx, "name.ParseReference", "ref", refstr, "err", err)
 		serve.Error(w, err)
 		return
 	}
@@ -106,15 +104,15 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	// Determine whether the ref is for an image or index.
 	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
-		slog.Error("remote.Head", "ref", refstr, "err", err)
+		slog.ErrorContext(ctx, "remote.Head", "ref", refstr, "err", err)
 		var h v1.Hash
 		// HEAD failed, let's figure out if it was an index or image by doing GETs.
 		idx, err = remote.Index(ref, remote.WithContext(ctx))
 		if err != nil {
-			slog.Error("remote.Index", "ref", refstr, "err", err)
+			slog.ErrorContext(ctx, "remote.Index", "ref", refstr, "err", err)
 			img, err = remote.Image(ref, remote.WithContext(ctx))
 			if err != nil {
-				slog.Error("remote.Image", "ref", refstr, "err", err)
+				slog.ErrorContext(ctx, "remote.Image", "ref", refstr, "err", err)
 				serve.Error(w, err)
 				return
 			}
@@ -126,7 +124,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			h, err = img.Digest()
 		}
 		if err != nil {
-			slog.Error("Digest()", "ref", refstr, "err", err)
+			slog.ErrorContext(ctx, "Digest()", "ref", refstr, "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -135,14 +133,14 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		// before), and if so serve it directly.
 		ck = cacheKey(h.String())
 		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-			slog.Info("serving cached manifest", "ck", ck)
+			slog.InfoContext(ctx, "serving cached manifest", "ck", ck)
 			serve.Blob(w, r, ck)
 			return
 		}
 	} else {
 		if !acceptableMediaTypes[d.MediaType] {
 			err = fmt.Errorf("unknown media type: %s", d.MediaType)
-			slog.Error("unknown media type", "ref", refstr, "err", err)
+			slog.ErrorContext(ctx, "unknown media type", "ref", refstr, "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -151,7 +149,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 		// directly.
 		ck = cacheKey(d.Digest.String())
 		if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-			slog.Info("serving cached manifest", "ck", ck)
+			slog.InfoContext(ctx, "serving cached manifest", "ck", ck)
 			serve.Blob(w, r, ck)
 			return
 		}
@@ -161,7 +159,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			idx, err = remote.Index(ref, remote.WithContext(ctx))
 			if err != nil {
 				err = fmt.Errorf("remote.Index: %v", err)
-				slog.Error("remote.Index", "ref", refstr, "err", err)
+				slog.ErrorContext(ctx, "remote.Index", "ref", refstr, "err", err)
 				serve.Error(w, err)
 				return
 			}
@@ -169,7 +167,7 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 			img, err = remote.Image(ref, remote.WithContext(ctx))
 			if err != nil {
 				err = fmt.Errorf("remote.Image: %v", err)
-				slog.Error("remote.Image", "ref", refstr, "err", err)
+				slog.ErrorContext(ctx, "remote.Image", "ref", refstr, "err", err)
 				serve.Error(w, err)
 				return
 			}
@@ -177,14 +175,14 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if idx != nil {
-		fidx, err := s.flattenIndex(idx)
+		fidx, err := s.flattenIndex(ctx, idx)
 		if err != nil {
 			serve.Error(w, err)
 			return
 		}
 
 		if err := s.storage.ServeIndex(w, r, fidx, ck); err != nil {
-			slog.Error("storage.ServeIndex", "err", err)
+			slog.ErrorContext(ctx, "storage.ServeIndex", "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -192,14 +190,14 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if img != nil {
-		fimg, err := s.flatten(img)
+		fimg, err := s.flatten(ctx, img)
 		if err != nil {
 			serve.Error(w, err)
 			return
 		}
 
 		if err := s.storage.ServeManifest(w, r, fimg, ck); err != nil {
-			slog.Error("storage.ServeManifest", "err", err)
+			slog.ErrorContext(ctx, "storage.ServeManifest", "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -208,10 +206,10 @@ func (s *server) serveFlattenManifest(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
+func (s *server) flattenIndex(ctx context.Context, idx v1.ImageIndex) (v1.ImageIndex, error) {
 	im, err := idx.IndexManifest()
 	if err != nil {
-		slog.Error("idx.IndexManifest", "err", err)
+		slog.ErrorContext(ctx, "idx.IndexManifest", "err", err)
 		return nil, err
 	}
 	// Flatten each image in the manifest.
@@ -222,16 +220,16 @@ func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
 		g.Go(func() error {
 			img, err := idx.Image(m.Digest)
 			if err != nil {
-				slog.Error("idx.Image", "err", err)
+				slog.ErrorContext(ctx, "idx.Image", "err", err)
 				return err
 			}
-			fimg, err := s.flatten(img)
+			fimg, err := s.flatten(ctx, img)
 			if err != nil {
 				return err
 			}
 			m.Digest, err = fimg.Digest()
 			if err != nil {
-				slog.Error("fimg.Digest", "err", err)
+				slog.ErrorContext(ctx, "fimg.Digest", "err", err)
 				return err
 			}
 			adds[i] = mutate.IndexAddendum{
@@ -242,33 +240,33 @@ func (s *server) flattenIndex(idx v1.ImageIndex) (v1.ImageIndex, error) {
 		})
 	}
 	if err := g.Wait(); err != nil {
-		slog.Error("g.Wait", "err", err)
+		slog.ErrorContext(ctx, "g.Wait", "err", err)
 		return nil, err
 	}
 	return mutate.AppendManifests(empty.Index, adds...), nil
 }
 
-func (s *server) flatten(img v1.Image) (v1.Image, error) {
+func (s *server) flatten(ctx context.Context, img v1.Image) (v1.Image, error) {
 	l, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return mutate.Extract(img), nil })
 	if err != nil {
-		slog.Error("tarball.LayerFromOpener", "err", err)
+		slog.ErrorContext(ctx, "tarball.LayerFromOpener", "err", err)
 		return nil, err
 	}
 	fimg, err := mutate.AppendLayers(empty.Image, l)
 	if err != nil {
-		slog.Error("mutate.AppendLayers", "err", err)
+		slog.ErrorContext(ctx, "mutate.AppendLayers", "err", err)
 		return nil, err
 	}
 
 	// Copy over basic information from original config file.
 	ocf, err := img.ConfigFile()
 	if err != nil {
-		slog.Error("img.ConfigFile", "err", err)
+		slog.ErrorContext(ctx, "img.ConfigFile", "err", err)
 		return nil, err
 	}
 	ncf, err := fimg.ConfigFile()
 	if err != nil {
-		slog.Error("fimg.ConfigFile", "err", err)
+		slog.ErrorContext(ctx, "fimg.ConfigFile", "err", err)
 		return nil, err
 	}
 	cf := ncf.DeepCopy()

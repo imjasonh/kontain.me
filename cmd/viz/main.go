@@ -20,23 +20,23 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+
 	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{}))
 
-	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		slog.Info("Defaulting port", "port", port)
+		slog.InfoContext(ctx, "Defaulting port", "port", port)
 	}
-	slog.Info("Listening", "port", port)
-	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.InfoContext(ctx, "Listening...", "port", port)
+	slog.ErrorContext(ctx, "ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
 type server struct{}
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	slog.Info("handler", "method", r.Method, "url", r.URL)
 	if r.Method != http.MethodPost {
 		http.Error(w, "must be post", http.StatusMethodNotAllowed)
 		return

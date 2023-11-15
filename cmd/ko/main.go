@@ -30,26 +30,24 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		slog.Error("serve.NewStorage", "err", err)
+		slog.ErrorContext(ctx, "serve.NewStorage", "err", err)
 		os.Exit(1)
 	}
 	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/ko", http.StatusSeeOther))
 
-	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		slog.Info("Defaulting port", "port", port)
+		slog.InfoContext(ctx, "Defaulting port", "port", port)
 	}
-	slog.Info("Listening", "port", port)
-	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.InfoContext(ctx, "Listening...", "port", port)
+	slog.ErrorContext(ctx, "ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
 type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	switch {
@@ -86,7 +84,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(tagOrDigest, "sha256:") {
 		desc, err := s.storage.BlobExists(ctx, tagOrDigest)
 		if err != nil {
-			slog.Error("storage.BlobExists", "err", err)
+			slog.ErrorContext(ctx, "storage.BlobExists", "err", err)
 			serve.Error(w, serve.ErrNotFound)
 			return
 		}
@@ -104,7 +102,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	// whether the path is a module path that returns a version.
 	module, version, err := walkUp(ctx, ip, tagOrDigest)
 	if err != nil {
-		slog.Error("walkUp", "err", err)
+		slog.ErrorContext(ctx, "walkUp", "err", err)
 		serve.Error(w, err)
 		return
 	}
@@ -112,7 +110,7 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	// Check if we've already got a manifest for this importpath + resolved version.
 	ck := cacheKey(ip, version)
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
-		slog.Info("serving cached manifest", "ck", ck)
+		slog.InfoContext(ctx, "serving cached manifest", "ck", ck)
 		serve.Blob(w, r, ck)
 		return
 	}
@@ -121,21 +119,21 @@ func (s *server) serveKoManifest(w http.ResponseWriter, r *http.Request) {
 	// Pull the module source from the module proxy and build it.
 	br, err := s.fetchAndBuild(ctx, module, version, filepath)
 	if err != nil {
-		slog.Error("fetchAndBuild", "err", err)
+		slog.ErrorContext(ctx, "fetchAndBuild", "err", err)
 		serve.Error(w, err)
 		return
 	}
 
 	if idx, ok := br.(v1.ImageIndex); ok {
 		if err := s.storage.ServeIndex(w, r, idx, ck); err != nil {
-			slog.Error("storage.ServeIndex", "err", err)
+			slog.ErrorContext(ctx, "storage.ServeIndex", "err", err)
 			serve.Error(w, err)
 		}
 		return
 	}
 	if img, ok := br.(v1.Image); ok {
 		if err := s.storage.ServeManifest(w, r, img, ck); err != nil {
-			slog.Error("storage.ServeManifest", "err", err)
+			slog.ErrorContext(ctx, "storage.ServeManifest", "err", err)
 			serve.Error(w, err)
 		}
 		return
@@ -157,7 +155,7 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, b
 	f, err := os.Open(".ko.yaml")
 	if err == nil {
 		defer f.Close()
-		slog.Info("Found .ko.yaml")
+		slog.InfoContext(ctx, "Found .ko.yaml")
 		var y struct {
 			DefaultBaseImage   string            `yaml:"defaultBaseImage"`
 			BaseImageOverrides map[string]string `yaml:"baseImageOverrides"`
@@ -172,7 +170,7 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, b
 			base = bio
 		}
 	}
-	slog.Info("Using base image", "base", base, "ip", ip)
+	slog.InfoContext(ctx, "Using base image", "base", base, "ip", ip)
 
 	ref, err := name.ParseReference(base)
 	if err != nil {
@@ -184,11 +182,11 @@ func (s *server) getBaseImage(ctx context.Context, ip string) (name.Reference, b
 	}
 	switch d.MediaType {
 	case types.DockerManifestList, types.OCIImageIndex:
-		slog.Info("Base image is index", "base", base)
+		slog.InfoContext(ctx, "Base image is index", "base", base)
 		idx, err := remote.Index(ref)
 		return ref, idx, err
 	case types.DockerManifestSchema2, types.OCIManifestSchema1:
-		slog.Info("Base image is image", "base", base)
+		slog.InfoContext(ctx, "Base image is image", "base", base)
 		img, err := remote.Image(ref)
 		return ref, img, err
 	default:
@@ -301,6 +299,6 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 	if err := g.IsSupportedReference(ip); err != nil {
 		return nil, err
 	}
-	slog.Info("ko build", "ip", ip)
+	slog.InfoContext(ctx, "ko build", "ip", ip)
 	return g.Build(ctx, ip)
 }

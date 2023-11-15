@@ -20,26 +20,24 @@ func main() {
 	ctx := context.Background()
 	st, err := serve.NewStorage(ctx)
 	if err != nil {
-		slog.Error("serve.NewStorage", "err", err)
+		slog.ErrorContext(ctx, "serve.NewStorage", "err", err)
 		os.Exit(1)
 	}
 	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/mirror", http.StatusSeeOther))
 
-	slog.Info("Starting...")
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-		slog.Info("Defaulting port", "port", port)
+		slog.InfoContext(ctx, "Defaulting port", "port", port)
 	}
-	slog.Info("Listening", "port", port)
-	slog.Error("ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
+	slog.InfoContext(ctx, "Listening...", "port", port)
+	slog.ErrorContext(ctx, "ListenAndServe", "err", http.ListenAndServe(fmt.Sprintf(":%s", port), nil))
 }
 
 type server struct{ storage *serve.Storage }
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	slog.Info("handler", "method", r.Method, "url", r.URL)
 	path := strings.TrimPrefix(r.URL.String(), "/v2/")
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")                 // Allow CORS requests from any domain.
@@ -89,7 +87,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 
 	ref, err := name.ParseReference(refstr)
 	if err != nil {
-		slog.Error("name.ParseReference", "ref", refstr, "err", err)
+		slog.ErrorContext(ctx, "name.ParseReference", "ref", refstr, "err", err)
 		serve.Error(w, err)
 		return
 	}
@@ -116,7 +114,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 	// blob.
 	d, err := remote.Head(ref, remote.WithContext(ctx))
 	if err != nil {
-		slog.Error("remote.Head", "ref", ref, "err", err)
+		slog.ErrorContext(ctx, "remote.Head", "ref", ref, "err", err)
 		var desci interface {
 			Digest() (v1.Hash, error)
 			Size() (int64, error)
@@ -125,10 +123,10 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		// HEAD failed, let's figure out if it was an index or image by doing GETs.
 		idx, err = remote.Index(ref, remote.WithContext(ctx))
 		if err != nil {
-			slog.Error("remote.Index", "ref", ref, "err", err)
+			slog.ErrorContext(ctx, "remote.Index", "ref", ref, "err", err)
 			img, err = remote.Image(ref, remote.WithContext(ctx))
 			if err != nil {
-				slog.Error("remote.Image", "ref", ref, "err", err)
+				slog.ErrorContext(ctx, "remote.Image", "ref", ref, "err", err)
 				serve.Error(w, err)
 				return
 			}
@@ -139,19 +137,19 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 
 		h, err := desci.Digest()
 		if err != nil {
-			slog.Error("Digest()", "ref", ref, "err", err)
+			slog.ErrorContext(ctx, "Digest()", "ref", ref, "err", err)
 			serve.Error(w, err)
 			return
 		}
 		sz, err := desci.Size()
 		if err != nil {
-			slog.Error("Size()", "ref", ref, "err", err)
+			slog.ErrorContext(ctx, "Size()", "ref", ref, "err", err)
 			serve.Error(w, err)
 			return
 		}
 		mt, err := desci.MediaType()
 		if err != nil {
-			slog.Error("MediaType()", "ref", ref, "err", err)
+			slog.ErrorContext(ctx, "MediaType()", "ref", ref, "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -171,7 +169,7 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 		serve.Blob(w, r, d.Digest.String())
 		return
 	} else {
-		slog.Info("BlobExists", "digest", d.Digest.String(), "err", err)
+		slog.InfoContext(ctx, "BlobExists", "digest", d.Digest.String(), "err", err)
 	}
 
 	// Blob doesn't exist yet. Try to get the image manifest+layers
@@ -183,13 +181,13 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 			// the image index.
 			idx, err = remote.Index(ref, remote.WithContext(ctx))
 			if err != nil {
-				slog.Error("remote.Index", "ref", ref, "err", err)
+				slog.ErrorContext(ctx, "remote.Index", "ref", ref, "err", err)
 				serve.Error(w, err)
 				return
 			}
 		}
 		if err := s.storage.ServeIndex(w, r, idx); err != nil {
-			slog.Error("storage.ServeIndex", "err", err)
+			slog.ErrorContext(ctx, "storage.ServeIndex", "err", err)
 			serve.Error(w, err)
 			return
 		}
@@ -199,19 +197,19 @@ func (s *server) serveMirrorManifest(w http.ResponseWriter, r *http.Request) {
 			// manifest.
 			img, err = remote.Image(ref, remote.WithContext(ctx))
 			if err != nil {
-				slog.Error("remote.Image", "ref", ref, "err", err)
+				slog.ErrorContext(ctx, "remote.Image", "ref", ref, "err", err)
 				serve.Error(w, err)
 				return
 			}
 		}
 		if err := s.storage.ServeManifest(w, r, img); err != nil {
-			slog.Error("storage.ServeManifest", "err", err)
+			slog.ErrorContext(ctx, "storage.ServeManifest", "err", err)
 			serve.Error(w, err)
 			return
 		}
 	default:
 		err := fmt.Errorf("unknown media type: %s", d.MediaType)
-		slog.Error("unknown media type", "ref", refstr, "err", err)
+		slog.ErrorContext(ctx, "unknown media type", "ref", refstr, "err", err)
 		serve.Error(w, err)
 	}
 }
