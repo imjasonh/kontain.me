@@ -13,10 +13,10 @@ import (
 
 	"chainguard.dev/apko/pkg/build"
 	"chainguard.dev/apko/pkg/build/types"
+	"github.com/chainguard-dev/go-apk/pkg/fs"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	v1tar "github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 	"gopkg.in/yaml.v2"
@@ -159,7 +159,7 @@ func (s *server) build(ctx context.Context, ic types.ImageConfiguration) (v1.Ima
 	}
 	defer os.RemoveAll(wd)
 
-	bc, err := build.New(wd,
+	bc, err := build.New(ctx, fs.DirFS(wd),
 		build.WithImageConfiguration(ic),
 		build.WithArch(amd64), // TODO: multiarch
 		build.WithBuildDate(time.Time{}.Format(time.RFC3339)),
@@ -168,25 +168,14 @@ func (s *server) build(ctx context.Context, ic types.ImageConfiguration) (v1.Ima
 		return nil, err
 	}
 
-	if err := bc.Refresh(); err != nil {
-		return nil, fmt.Errorf("failed to update build context for %q: %w", amd64, err)
-	}
-
-	layerTarGZ, err := bc.BuildLayer()
+	_, layer, err := bc.BuildLayer(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build layer image for %q: %w", amd64, err)
-	}
-	// TODO(kaniini): clean up everything correctly for multitag scenario
-	// defer os.Remove(layerTarGZ)
-
-	v1Layer, err := v1tar.LayerFromFile(layerTarGZ)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create OCI layer from tar.gz: %w", err)
 	}
 
 	adds := make([]mutate.Addendum, 0, 1)
 	adds = append(adds, mutate.Addendum{
-		Layer: v1Layer,
+		Layer: layer,
 		History: v1.History{
 			Author:    "apko",
 			Comment:   "This is an apko single-layer image",
