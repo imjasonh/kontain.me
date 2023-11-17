@@ -17,3 +17,6 @@ jobs:
           go-version: '1.21.x'
       - uses: actions/checkout@v3
       - run: go build ./...
+      - uses: hashicorp/setup-terraform@v2
+      - run: terraform fmt -check -recursive
+

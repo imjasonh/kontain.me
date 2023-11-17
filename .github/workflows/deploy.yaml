@@ -37,13 +37,8 @@ jobs:
       with:
         project_id: kontaindotme
 
-    - name: Terraform Plan
+    - name: Terraform Plan and Apply
       run: |
         terraform init
         terraform plan -input=false -lock=false -out=plan.tmp
-
-    - name: Terraform Apply
-      run: terraform apply -auto-approve -input=false plan.tmp
-
-    - run: ./test.sh
-
+        terraform apply -auto-approve -input=false plan.tmp
