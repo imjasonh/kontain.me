@@ -45,25 +45,91 @@ locals {
   }
 }
 
-module "app" {
-  for_each   = local.apps
-  depends_on = [google_project_service.run-api]
-  source     = "./module"
-  name       = each.key
+resource "ko_build" "image" {
+  for_each = local.apps
 
-  project_id           = var.project_id
-  location             = var.location
-  domain               = var.domain
-  dns_zone             = local.dns_zone
-  bucket               = google_storage_bucket.bucket.name
-  service_account_name = google_service_account.service_account.email
-
-  cpu                   = each.value.cpu
-  ram                   = each.value.ram
-  container_concurrency = each.value.container_concurrency
-  timeout_seconds       = each.value.timeout_seconds
-  base_image            = each.value.base_image
+  repo       = "gcr.io/${var.project_id}/${each.key}"
+  importpath = "github.com/imjasonh/kontain.me/cmd/${each.key}"
+  base_image = each.value.base_image
 }
 
-output "cloudrun_url" { value = { for k, _ in local.apps : k => module.app[k].cloudrun_url } }
-output "vanity_url" { value = { for k, _ in local.apps : k => module.app[k].vanity_url } }
+resource "google_cloud_run_service" "service" {
+  for_each = local.apps
+  name     = each.key
+  location = var.location
+
+  template {
+    spec {
+      service_account_name  = google_service_account.service_account.email
+      container_concurrency = each.value.container_concurrency
+      timeout_seconds       = each.value.timeout_seconds
+      containers {
+        image = ko_build.image[each.key].image_ref
+        env {
+          name  = "BUCKET"
+          value = google_storage_bucket.bucket.name
+        }
+        resources {
+          limits = {
+            cpu    = each.value.cpu
+            memory = each.value.ram
+          }
+          requests = {
+            cpu    = each.value.cpu
+            memory = each.value.ram
+          }
+        }
+      }
+    }
+  }
+}
+
+data "google_iam_policy" "noauth" {
+  binding {
+    role    = "roles/run.invoker"
+    members = ["allUsers"]
+  }
+}
+
+resource "google_cloud_run_service_iam_policy" "noauth" {
+  for_each = local.apps
+  location = var.location
+  service  = google_cloud_run_service.service[each.key].name
+
+  policy_data = data.google_iam_policy.noauth.policy_data
+}
+
+resource "google_cloud_run_domain_mapping" "mapping" {
+  for_each = local.apps
+  location = var.location
+  name     = "${each.key}.${var.domain}"
+
+  metadata {
+    namespace = var.project_id
+  }
+
+  spec {
+    route_name = google_cloud_run_service.service[each.key].name
+  }
+}
+
+resource "google_dns_record_set" "dns-record" {
+  for_each = local.apps
+
+  name = "${each.key}.${var.domain}."
+  type = google_cloud_run_domain_mapping.mapping[each.key].status[0].resource_records[0].type
+  ttl  = 300
+
+  managed_zone = google_dns_managed_zone.zone.name
+
+  rrdatas = [google_cloud_run_domain_mapping.mapping[each.key].status[0].resource_records[0].rrdata]
+}
+
+resource "null_resource" "test" {
+  for_each   = local.apps
+  depends_on = [google_dns_record_set.dns-record]
+  provisioner "local-exec" { command = file("${path.module}/cmd/${each.key}/test.sh") }
+}
+
+output "cloudrun_url" { value = { for k, _ in local.apps : k => google_cloud_run_service.service[k].status[0].url } }
+output "vanity_url" { value = { for k, _ in local.apps : k => google_cloud_run_domain_mapping.mapping[k].name } }

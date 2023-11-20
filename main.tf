@@ -3,6 +3,11 @@ terraform {
     bucket = "kontaindotme-tfstate"
     prefix = "terraform/state"
   }
+
+  required_providers {
+    google = { source = "hashicorp/google" }
+    ko     = { source = "ko-build/ko" }
+  }
 }
 
 provider "google" {
@@ -67,8 +72,6 @@ resource "google_storage_bucket_iam_member" "bucket-member" {
 }
 
 resource "google_dns_managed_zone" "zone" {
-  count = var.dns_zone != "" ? 0 : 1 // If var.dns_zone is unset, create and manage this zone.
-
   name     = "kontainme-zone"
   dns_name = "${var.domain}."
 
@@ -82,19 +85,13 @@ resource "google_project_service" "dns-api" {
   disable_on_destroy = false
 }
 
-variable "dns_zone" {
-  type        = string
-  description = "If set, use this pre-existing DNS zone"
-  default     = ""
-}
-
 // Redirect kontain.me to github.com/imjasonh/kontain.me
 resource "google_dns_record_set" "root-a-record" {
   name = "${var.domain}."
   type = "A"
   ttl  = 300
 
-  managed_zone = local.dns_zone
+  managed_zone = google_dns_managed_zone.zone.name
 
   rrdatas = [
     "216.239.32.21",
@@ -110,7 +107,7 @@ resource "google_dns_record_set" "root-aaaa-record" {
   type = "AAAA"
   ttl  = 300
 
-  managed_zone = local.dns_zone
+  managed_zone = google_dns_managed_zone.zone.name
 
   rrdatas = [
     "2001:4860:4802:32::15",
@@ -119,9 +116,6 @@ resource "google_dns_record_set" "root-aaaa-record" {
     "2001:4860:4802:38::15",
   ]
 }
-
-// If var.dns_zone is set, use it. Otherwise, use the managed zone.
-locals { dns_zone = var.dns_zone != "" ? var.dns_zone : google_dns_managed_zone.zone[0].name }
 
 // Enable Cloud Run API.
 resource "google_project_service" "run-api" {
