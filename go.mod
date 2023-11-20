@@ -3,7 +3,7 @@ module github.com/imjasonh/kontain.me
 go 1.21.0
 
 require (
-	chainguard.dev/apko v0.11.3-0.20231115001842-788d369d8038
+	chainguard.dev/apko v0.11.3
 	cloud.google.com/go/storage v1.35.1
 	github.com/chainguard-dev/go-apk v0.0.0-20231113174935-f86aaf233502
 	github.com/dustin/go-humanize v1.0.1
