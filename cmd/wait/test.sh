@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -eux
 
 exit 0 # TODO
-
-
 
 uid=image-$(date +%s)
 crane manifest wait.kontain.me/${uid} || true

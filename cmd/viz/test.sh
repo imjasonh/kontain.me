@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -eux
 
 curl https://viz.kontain.me | grep textarea

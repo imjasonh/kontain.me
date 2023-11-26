@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -eux
 
 gcloud run deploy viz \
   --project=kontaindotme \
