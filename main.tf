@@ -30,6 +30,14 @@ variable "domain" {
   description = "The domain to map the Cloud Run service to."
 }
 
+module "dashboard" {
+  for_each = tomap(tomap(local.apps))
+  source   = "github.com/chainguard-dev/terraform-cloudrun-dashboard"
+
+  project_id   = var.project_id
+  service_name = each.key
+}
+
 resource "google_storage_bucket" "bucket" {
   name     = "${var.project_id}-kontainme"
   location = "US"
