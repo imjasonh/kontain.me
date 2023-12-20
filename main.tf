@@ -31,10 +31,8 @@ variable "domain" {
 }
 
 module "dashboard" {
-  for_each = tomap(tomap(local.apps))
-  source   = "github.com/chainguard-dev/terraform-cloudrun-dashboard"
-
-  project_id   = var.project_id
+  for_each     = tomap(local.apps)
+  source       = "git::https://github.com/chainguard-dev/terraform-cloudrun-glue//dashboard/service?ref=main"
   service_name = each.key
 }
 

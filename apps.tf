@@ -126,8 +126,12 @@ resource "google_dns_record_set" "dns-record" {
 }
 
 resource "null_resource" "test" {
-  for_each   = local.apps
+  for_each   = tomap(local.apps)
   depends_on = [google_dns_record_set.dns-record]
+
+  # Changes to any service requires re-testing it.
+  triggers = { service = google_cloud_run_service.service[each.key].id }
+
   provisioner "local-exec" { command = file("${path.module}/cmd/${each.key}/test.sh") }
 }
 
