@@ -6,11 +6,13 @@ require (
 	chainguard.dev/apko v0.11.3-0.20231115001842-788d369d8038
 	cloud.google.com/go/storage v1.35.1
 	github.com/chainguard-dev/go-apk v0.0.0-20231113174935-f86aaf233502
+	github.com/chainguard-dev/terraform-google-prober v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-containerregistry v0.16.1
 	github.com/google/ko v0.15.0
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
-	github.com/imjasonh/gcpslog v0.0.0-20231112043542-653be1bb0599
+	github.com/imjasonh/gcpslog v0.0.0-20231221170233-ff48b3e39a87
+	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/tmc/dot v0.0.0-20210901225022-f9bc17da75c0
 	golang.org/x/mod v0.14.0
 	golang.org/x/sync v0.5.0
@@ -56,6 +58,7 @@ require (
 	github.com/go-openapi/validate v0.22.1 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.4.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect

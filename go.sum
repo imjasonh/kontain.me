@@ -74,6 +74,8 @@ github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/chainguard-dev/go-apk v0.0.0-20231113174935-f86aaf233502 h1:xYYl90jArqY6gFWTNA+6hRlrtKqHJ0lsWPluieS/xO8=
 github.com/chainguard-dev/go-apk v0.0.0-20231113174935-f86aaf233502/go.mod h1:y0BbOQALsoi1T2Lt5KmFNn92G+fRFSUuogQI2171HS8=
+github.com/chainguard-dev/terraform-google-prober v0.5.0 h1:sNIyDWgrg7J907TprZsuE8RaJZH5YwMI53IP1Bvt7+g=
+github.com/chainguard-dev/terraform-google-prober v0.5.0/go.mod h1:iNB5dtB3lRC0Yh7aCcae2BIZ1JRygg6EYhTxhNKgD/U=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
@@ -293,6 +295,8 @@ github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458 h1:KSkVhq4WEv9rlP6G
 github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458/go.mod h1:Fa7ozpRszH4I+tsBQpsszFbSKnzIXPCvv2RorJijAMg=
 github.com/imjasonh/gcpslog v0.0.0-20231112043542-653be1bb0599 h1:c6Rv/SECa61p+kUmHDdRndQkfYkDjXec/9xu9BiIt9g=
 github.com/imjasonh/gcpslog v0.0.0-20231112043542-653be1bb0599/go.mod h1:hfhJTxc/iAHDaUCOYnKEn6l4m9AjNSyQi8CFgJB/BHk=
+github.com/imjasonh/gcpslog v0.0.0-20231221170233-ff48b3e39a87 h1:V8ZZfmRjMlcAn9F7LJnlcuWc8Z1OId0SPnBRPSdJtCc=
+github.com/imjasonh/gcpslog v0.0.0-20231221170233-ff48b3e39a87/go.mod h1:crwolI91kTDe1DETZVPJL3X+Yp/TTk0z85M/QYeEKEs=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
@@ -309,6 +313,8 @@ github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
 github.com/karrick/godirwalk v1.8.0/go.mod h1:H5KPZjojv4lE+QYImBI8xVtrBRgYrIVsaRPx4tDPEn4=
 github.com/karrick/godirwalk v1.10.3/go.mod h1:RoGL9dQei4vP9ilrpETWE8CLOZ1kiN0LhBygSwrAsHA=
+github.com/kelseyhightower/envconfig v1.4.0 h1:Im6hONhd3pLkfDFsbRgu68RDNkGF1r3dvMUtDTo2cv8=
+github.com/kelseyhightower/envconfig v1.4.0/go.mod h1:cccZRl6mQpaq41TPp5QxidR+Sa3axMbJDNb//FQX6Gg=
 github.com/kevinburke/ssh_config v1.2.0 h1:x584FjTGwHzMwvHx18PXxbBVzfnxogHaAReU4gf13a4=
 github.com/kevinburke/ssh_config v1.2.0/go.mod h1:CT57kijsi8u/K/BOFA39wgDQJ9CxiF4nAY/ojJ6r6mM=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=

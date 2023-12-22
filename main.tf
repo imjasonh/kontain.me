@@ -34,6 +34,8 @@ module "dashboard" {
   for_each     = tomap(local.apps)
   source       = "git::https://github.com/chainguard-dev/terraform-cloudrun-glue//dashboard/service?ref=main"
   service_name = each.key
+
+  alert = lookup(each.value, "alert_id", "")
 }
 
 resource "google_storage_bucket" "bucket" {

@@ -34,6 +34,7 @@ locals {
       container_concurrency = 1000
       timeout_seconds       = 60 # 1m
       base_image            = "cgr.dev/chainguard/static:latest-glibc"
+      alert_id              = module.prober.alert_id
     }
     wait : {
       cpu                   = 1
@@ -137,3 +138,4 @@ resource "null_resource" "test" {
 
 output "cloudrun_url" { value = { for k, _ in local.apps : k => google_cloud_run_service.service[k].status[0].url } }
 output "vanity_url" { value = { for k, _ in local.apps : k => google_cloud_run_domain_mapping.mapping[k].name } }
+
