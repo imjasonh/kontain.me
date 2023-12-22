@@ -3,9 +3,9 @@ module github.com/imjasonh/kontain.me
 go 1.21.0
 
 require (
-	chainguard.dev/apko v0.11.3-0.20231115001842-788d369d8038
+	chainguard.dev/apko v0.13.1
 	cloud.google.com/go/storage v1.35.1
-	github.com/chainguard-dev/go-apk v0.0.0-20231113174935-f86aaf233502
+	github.com/chainguard-dev/go-apk v0.0.0-20231218235333-2acefacd5846
 	github.com/chainguard-dev/terraform-google-prober v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-containerregistry v0.16.1
@@ -104,12 +104,12 @@ require (
 	go.opentelemetry.io/otel/metric v1.20.0 // indirect
 	go.opentelemetry.io/otel/trace v1.20.0 // indirect
 	golang.org/x/build v0.0.0-20231114144716-3cf4c0a3c862 // indirect
-	golang.org/x/crypto v0.15.0 // indirect
+	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/net v0.18.0 // indirect
 	golang.org/x/oauth2 v0.14.0 // indirect
-	golang.org/x/sys v0.14.0 // indirect
-	golang.org/x/term v0.14.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/term v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.4.0 // indirect
 	golang.org/x/tools v0.15.0 // indirect
