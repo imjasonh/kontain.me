@@ -9,7 +9,7 @@ require (
 	github.com/chainguard-dev/terraform-google-prober v0.5.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-containerregistry v0.16.1
-	github.com/google/ko v0.15.0
+	github.com/google/ko v0.15.1
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
 	github.com/imjasonh/gcpslog v0.0.0-20231221170233-ff48b3e39a87
 	github.com/kelseyhightower/envconfig v1.4.0
@@ -65,6 +65,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-hclog v1.5.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.5 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
@@ -124,6 +125,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apimachinery v0.28.3 // indirect
+	k8s.io/apimachinery v0.28.4 // indirect
 	sigs.k8s.io/release-utils v0.7.7 // indirect
 )
