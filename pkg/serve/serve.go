@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/chainguard-dev/terraform-cloudrun-glue/pkg/httpmetrics"
+	"github.com/chainguard-dev/terraform-infra-common/pkg/httpmetrics"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"

@@ -38,7 +38,7 @@ variable "notification_channels" {
 
 module "dashboard" {
   for_each     = tomap(local.apps)
-  source       = "git::https://github.com/chainguard-dev/terraform-cloudrun-glue//dashboard/service?ref=main"
+  source       = "git::https://github.com/chainguard-dev/terraform-infra-common//dashboard/service?ref=main"
   service_name = each.key
 
   alerts = lookup(each.value, "alert_id", "") == "" ? [] : [each.value.alert_id]
