@@ -6,7 +6,7 @@ toolchain go1.21.5
 
 require (
 	chainguard.dev/apko v0.11.3-0.20231115001842-788d369d8038
-	cloud.google.com/go/storage v1.35.1
+	cloud.google.com/go/storage v1.36.0
 	github.com/chainguard-dev/go-apk v0.0.0-20231113174935-f86aaf233502
 	github.com/chainguard-dev/terraform-cloudrun-glue v0.0.0-20231226151629-c901956af6cb
 	github.com/chainguard-dev/terraform-google-prober v0.5.0
