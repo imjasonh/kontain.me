@@ -5,9 +5,9 @@ go 1.21.1
 toolchain go1.21.5
 
 require (
-	chainguard.dev/apko v0.11.3-0.20231115001842-788d369d8038
+	chainguard.dev/apko v0.13.2
 	cloud.google.com/go/storage v1.35.1
-	github.com/chainguard-dev/go-apk v0.0.0-20231113174935-f86aaf233502
+	github.com/chainguard-dev/go-apk v0.0.0-20231218235333-2acefacd5846
 	github.com/chainguard-dev/terraform-cloudrun-glue v0.0.0-20231226151629-c901956af6cb
 	github.com/chainguard-dev/terraform-google-prober v0.5.0
 	github.com/dustin/go-humanize v1.0.1
@@ -32,7 +32,6 @@ require (
 	github.com/MakeNowJust/heredoc/v2 v2.0.1 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230923063757-afb1ddc0824c // indirect
-	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
@@ -50,7 +49,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.5.0 // indirect
-	github.com/go-git/go-git/v5 v5.10.0 // indirect
+	github.com/go-git/go-git/v5 v5.11.0 // indirect
 	github.com/go-logr/logr v1.3.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.21.4 // indirect
