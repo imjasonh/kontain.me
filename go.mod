@@ -11,7 +11,7 @@ require (
 	github.com/chainguard-dev/terraform-cloudrun-glue v0.0.0-20231226151629-c901956af6cb
 	github.com/chainguard-dev/terraform-google-prober v0.5.0
 	github.com/dustin/go-humanize v1.0.1
-	github.com/google/go-containerregistry v0.16.1
+	github.com/google/go-containerregistry v0.17.0
 	github.com/google/ko v0.15.0
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
 	github.com/imjasonh/gcpslog v0.0.0-20231221170233-ff48b3e39a87
