@@ -20,5 +20,6 @@ module "prober" {
 
   env = { "REF" : "random.${var.domain}/random:1x1" }
 
-  enable_alert = true
+  enable_alert          = true
+  notification_channels = tolist(var.notification_channels)
 }

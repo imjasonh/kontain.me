@@ -12,11 +12,17 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/chainguard-dev/terraform-cloudrun-glue/pkg/httpmetrics"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/api/googleapi"
 )
+
+func init() {
+	http.DefaultTransport = httpmetrics.Transport
+	go httpmetrics.ServeMetrics()
+}
 
 var bucket = os.Getenv("BUCKET")
 

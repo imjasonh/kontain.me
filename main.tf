@@ -30,6 +30,12 @@ variable "domain" {
   description = "The domain to map the Cloud Run service to."
 }
 
+variable "notification_channels" {
+  type        = set(string)
+  description = "The notification channels to send alerts to."
+  default     = []
+}
+
 module "dashboard" {
   for_each     = tomap(local.apps)
   source       = "git::https://github.com/chainguard-dev/terraform-cloudrun-glue//dashboard/service?ref=main"
