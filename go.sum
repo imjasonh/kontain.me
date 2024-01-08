@@ -73,8 +73,8 @@ github.com/chainguard-dev/go-apk v0.0.0-20231218235333-2acefacd5846 h1:5IIBDHIW3
 github.com/chainguard-dev/go-apk v0.0.0-20231218235333-2acefacd5846/go.mod h1:y0BbOQALsoi1T2Lt5KmFNn92G+fRFSUuogQI2171HS8=
 github.com/chainguard-dev/terraform-google-prober v0.5.0 h1:sNIyDWgrg7J907TprZsuE8RaJZH5YwMI53IP1Bvt7+g=
 github.com/chainguard-dev/terraform-google-prober v0.5.0/go.mod h1:iNB5dtB3lRC0Yh7aCcae2BIZ1JRygg6EYhTxhNKgD/U=
-github.com/chainguard-dev/terraform-infra-common v0.1.0 h1:ilh+Uj2FQMZJOtJvlOwrHZdD91WqqMMzpa5rumMGbGY=
-github.com/chainguard-dev/terraform-infra-common v0.1.0/go.mod h1:jMC/RPF5fjZhGTZxU1acDnj7yWn1HoLztd94X/833PA=
+github.com/chainguard-dev/terraform-infra-common v0.2.0 h1:WkiC/fm5gEOAmotZfzalcapvgebkckWNRr9JrwItiVc=
+github.com/chainguard-dev/terraform-infra-common v0.2.0/go.mod h1:ZqxKlmN/rPUBo91U0HP7IE6eoTxu5Eu3AUsldz9TLRs=
 github.com/chzyer/logex v1.1.10/go.mod h1:+Ywpsq7O8HXn0nuIou7OrIPyXbp3wmkHB+jjWRnGsAI=
 github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5PlCu98SY8svDHJxuZscDgtXS6KTTbou5AhLI=
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=

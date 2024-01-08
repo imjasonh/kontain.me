@@ -9,7 +9,7 @@ require (
 	cloud.google.com/go/storage v1.36.0
 	github.com/chainguard-dev/go-apk v0.0.0-20231218235333-2acefacd5846
 	github.com/chainguard-dev/terraform-google-prober v0.5.0
-	github.com/chainguard-dev/terraform-infra-common v0.1.0
+	github.com/chainguard-dev/terraform-infra-common v0.2.0
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-containerregistry v0.17.0
 	github.com/google/ko v0.15.1
