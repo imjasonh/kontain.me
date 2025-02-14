@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -152,14 +151,14 @@ func (s *Storage) ServeIndex(w http.ResponseWriter, r *http.Request, idx v1.Imag
 	if err != nil {
 		return err
 	}
-	if err := s.writeBlob(ctx, digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+	if err := s.writeBlob(ctx, digest.String(), digest, io.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
 	}
 
 	for _, a := range also {
 		a := a
 		g.Go(func() error {
-			return s.writeBlob(ctx, a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt))
+			return s.writeBlob(ctx, a, digest, io.NopCloser(bytes.NewReader(b)), string(mt))
 		})
 	}
 	if err := g.Wait(); err != nil {
@@ -194,7 +193,7 @@ func (s *Storage) WriteImage(ctx context.Context, img v1.Image, also ...string) 
 	if err != nil {
 		return err
 	}
-	if err := s.writeBlob(ctx, ch.String(), ch, ioutil.NopCloser(bytes.NewReader(cb)), "application/json"); err != nil {
+	if err := s.writeBlob(ctx, ch.String(), ch, io.NopCloser(bytes.NewReader(cb)), "application/json"); err != nil {
 		return err
 	}
 
@@ -239,17 +238,16 @@ func (s *Storage) WriteImage(ctx context.Context, img v1.Image, also ...string) 
 	if err != nil {
 		return err
 	}
-	if err := s.writeBlob(ctx, digest.String(), digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
+	if err := s.writeBlob(ctx, digest.String(), digest, io.NopCloser(bytes.NewReader(b)), string(mt)); err != nil {
 		return err
 	}
 	for _, a := range also {
 		a := a
 		g.Go(func() error {
-			return s.writeBlob(ctx, a, digest, ioutil.NopCloser(bytes.NewReader(b)), string(mt))
+			return s.writeBlob(ctx, a, digest, io.NopCloser(bytes.NewReader(b)), string(mt))
 		})
 	}
 	return g.Wait()
-	return nil
 }
 
 // ServeManifest writes config and layer blobs for the image, then writes and

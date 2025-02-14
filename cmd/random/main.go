@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/chainguard-dev/clog/gcp"
 	"github.com/google/go-containerregistry/pkg/v1/random"
-	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 )
 
@@ -22,7 +22,7 @@ func main() {
 		slog.ErrorContext(ctx, "serve.NewStorage", "err", err)
 		os.Exit(1)
 	}
-	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
+	http.Handle("/v2/", gcp.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/random", http.StatusSeeOther))
 
 	port := os.Getenv("PORT")

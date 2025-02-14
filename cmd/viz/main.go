@@ -11,18 +11,18 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/chainguard-dev/clog/gcp"
 	humanize "github.com/dustin/go-humanize"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/imjasonh/gcpslog"
 	"github.com/tmc/dot"
 )
 
 func main() {
 	ctx := context.Background()
 
-	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{}))
+	http.Handle("/v2/", gcp.WithCloudTraceContext(&server{}))
 
 	port := os.Getenv("PORT")
 	if port == "" {

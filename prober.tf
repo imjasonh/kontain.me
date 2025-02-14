@@ -3,11 +3,11 @@ resource "google_service_account" "no-auth" {
   display_name = "Prober SA with no permissions"
 }
 
+/*
 module "prober" {
-  //source  = "chainguard-dev/prober/google"
-  //version = "v0.5.0"
+  source = "git::https://github.com/chainguard-dev/terraform-infra-common//modules/prober?ref=main"
 
-  source = "git::https://github.com/chainguard-dev/terraform-google-prober?ref=main"
+  regions = module.networking.regions
 
   name            = "random-prober"
   project_id      = var.project_id
@@ -23,3 +23,4 @@ module "prober" {
   enable_alert          = true
   notification_channels = tolist(var.notification_channels)
 }
+*/

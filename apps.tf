@@ -34,7 +34,7 @@ locals {
       container_concurrency = 1000
       timeout_seconds       = 60 # 1m
       base_image            = "cgr.dev/chainguard/static:latest-glibc"
-      alert_id              = module.prober.alert_id
+      //alert_id              = module.prober.alert_id
     }
     wait : {
       cpu                   = 1

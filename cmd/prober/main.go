@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/chainguard-dev/terraform-google-prober/pkg/prober"
+	"github.com/chainguard-dev/terraform-infra-common/pkg/prober"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/validate"

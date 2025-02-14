@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"chainguard.dev/apko/pkg/apk/fs"
 	"chainguard.dev/apko/pkg/build"
 	"chainguard.dev/apko/pkg/build/types"
-	"github.com/chainguard-dev/go-apk/pkg/fs"
+	"github.com/chainguard-dev/clog/gcp"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
-	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 	"gopkg.in/yaml.v2"
 )
@@ -29,7 +29,7 @@ func main() {
 		slog.ErrorContext(ctx, "serve.NewStorage", "err", err)
 		os.Exit(1)
 	}
-	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
+	http.Handle("/v2/", gcp.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/apko", http.StatusSeeOther))
 
 	port := os.Getenv("PORT")
@@ -160,8 +160,7 @@ func (s *server) build(ctx context.Context, ic types.ImageConfiguration) (v1.Ima
 	bc, err := build.New(ctx, fs.DirFS(wd),
 		build.WithImageConfiguration(ic),
 		build.WithArch(amd64), // TODO: multiarch
-		build.WithBuildDate(time.Time{}.Format(time.RFC3339)),
-		build.WithAssertions(build.RequireGroupFile(true), build.RequirePasswdFile(true)))
+		build.WithBuildDate(time.Time{}.Format(time.RFC3339)))
 	if err != nil {
 		return nil, err
 	}

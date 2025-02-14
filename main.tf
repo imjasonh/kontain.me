@@ -37,11 +37,15 @@ variable "notification_channels" {
 }
 
 module "dashboard" {
-  for_each     = tomap(local.apps)
-  source       = "git::https://github.com/chainguard-dev/terraform-infra-common//dashboard/service?ref=main"
+  for_each = tomap(local.apps)
+  source   = "git::https://github.com/chainguard-dev/terraform-infra-common//modules/dashboard/service?ref=main"
+
+  project_id   = var.project_id
   service_name = each.key
 
-  alerts = lookup(each.value, "alert_id", "") == "" ? [] : [each.value.alert_id]
+  //alerts = lookup(each.value, "alert_id", "") == "" ? [] : [each.value.alert_id]
+
+  notification_channels = var.notification_channels
 }
 
 resource "google_storage_bucket" "bucket" {

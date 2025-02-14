@@ -7,19 +7,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/chainguard-dev/clog/gcp"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/ko/pkg/build"
-	"github.com/imjasonh/gcpslog"
 	"github.com/imjasonh/kontain.me/pkg/serve"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/zip"
@@ -33,7 +32,7 @@ func main() {
 		slog.ErrorContext(ctx, "serve.NewStorage", "err", err)
 		os.Exit(1)
 	}
-	http.Handle("/v2/", gcpslog.WithCloudTraceContext(&server{storage: st}))
+	http.Handle("/v2/", gcp.WithCloudTraceContext(&server{storage: st}))
 	http.Handle("/", http.RedirectHandler("https://github.com/imjasonh/kontain.me/blob/main/cmd/ko", http.StatusSeeOther))
 
 	port := os.Getenv("PORT")
@@ -248,7 +247,7 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 	defer resp.Body.Close()
 
 	// Write a temp zip file.
-	tmpzip, err := ioutil.TempFile("", "")
+	tmpzip, err := os.CreateTemp("", "ko-*")
 	if err != nil {
 		return nil, err
 	}
@@ -260,16 +259,16 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 
 	// Create a tempdir and cd into it
 	// (This is only safe because concurrency=1)
-	tmpdir, err := ioutil.TempDir("", "")
+	tmpdir, err := os.CreateTemp("", "ko-*")
 	if err != nil {
 		return nil, err
 	}
 	// Clean up the temp dir. If building is successful, we'll serve a
 	// cached manifest and not need to rebuild.
-	defer os.RemoveAll(tmpdir)
+	defer os.RemoveAll(tmpdir.Name())
 
 	// Unzip and validate the module zip file.
-	if err := zip.Unzip(tmpdir, module.Version{
+	if err := zip.Unzip(tmpdir.Name(), module.Version{
 		Path:    mod,
 		Version: version,
 	}, tmpzip.Name()); err != nil {
@@ -278,7 +277,7 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 
 	// ko build the package.
 	g, err := build.NewGo(
-		ctx, tmpdir,
+		ctx, tmpdir.Name(),
 		build.WithBaseImages(s.getBaseImage),
 		build.WithPlatforms("all"),
 		build.WithConfig(map[string]build.Config{
@@ -289,7 +288,7 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 				Flags: build.FlagArray{"-mod=mod"},
 			},
 		}),
-		build.WithCreationTime(v1.Time{time.Unix(0, 0)}),
+		build.WithCreationTime(v1.Time{Time: time.Unix(0, 0)}),
 		build.WithDisabledSBOM(),
 	)
 	if err != nil {

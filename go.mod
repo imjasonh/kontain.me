@@ -5,14 +5,12 @@ go 1.23.4
 require (
 	chainguard.dev/apko v0.25.0
 	cloud.google.com/go/storage v1.50.0
-	github.com/chainguard-dev/go-apk v0.0.0-20240605175618-f3471089c263
-	github.com/chainguard-dev/terraform-google-prober v0.5.0
+	github.com/chainguard-dev/clog v1.6.1
 	github.com/chainguard-dev/terraform-infra-common v0.6.123
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/ko v0.17.1
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
-	github.com/imjasonh/gcpslog v0.0.0-20240209190558-0c01a0f0b68e
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/tmc/dot v0.2.0
 	golang.org/x/mod v0.23.0
@@ -46,7 +44,6 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/chainguard-dev/clog v1.6.1 // indirect
 	github.com/charmbracelet/lipgloss v1.0.0 // indirect
 	github.com/charmbracelet/log v0.4.0 // indirect
 	github.com/charmbracelet/x/ansi v0.8.0 // indirect

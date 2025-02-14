@@ -14,7 +14,7 @@ func Do(command string) error {
 	cmd.Stdout = io.MultiWriter(os.Stdout, &out)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &out)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Error running %q: %s\n=====Command output=====\n%s", command, err, string(out.Bytes()))
+		return fmt.Errorf("Error running %q: %s\n=====Command output=====\n%s", command, err, out.String())
 	}
 	return nil
 }
