@@ -157,7 +157,7 @@ func (s *server) build(ctx context.Context, ic types.ImageConfiguration) (v1.Ima
 	}
 	defer os.RemoveAll(wd)
 
-	bc, err := build.New(ctx, fs.DirFS(wd),
+	bc, err := build.New(ctx, fs.DirFS(ctx, wd),
 		build.WithImageConfiguration(ic),
 		build.WithArch(amd64), // TODO: multiarch
 		build.WithBuildDate(time.Time{}.Format(time.RFC3339)))
