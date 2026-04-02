@@ -43,6 +43,14 @@ locals {
       timeout_seconds       = 60 # 1m
       base_image            = "cgr.dev/chainguard/static:latest-glibc"
     }
+    "infinite-git" : {
+      cpu                   = 1
+      ram                   = "1Gi"
+      container_concurrency = 1000
+      importpath            = "github.com/imjasonh/infinite-git"
+      base_image            = "cgr.dev/chainguard/git:latest"
+      timeout_seconds       = 60 # 1m
+    }
   }
 }
 
@@ -50,7 +58,7 @@ resource "ko_build" "image" {
   for_each = local.apps
 
   repo       = "gcr.io/${var.project_id}/${each.key}"
-  importpath = "github.com/imjasonh/kontain.me/cmd/${each.key}"
+  importpath = lookup(each.value, "importpath", "github.com/imjasonh/kontain.me/cmd/${each.key}")
   base_image = each.value.base_image
 }
 
@@ -127,7 +135,7 @@ resource "google_dns_record_set" "dns-record" {
 }
 
 resource "null_resource" "test" {
-  for_each   = tomap(local.apps)
+  for_each   = { for k, v in local.apps : k => v if !contains(keys(v), "importpath") }
   depends_on = [google_dns_record_set.dns-record]
 
   # Changes to any service requires re-testing it.
@@ -138,4 +146,3 @@ resource "null_resource" "test" {
 
 output "cloudrun_url" { value = { for k, _ in local.apps : k => google_cloud_run_service.service[k].status[0].url } }
 output "vanity_url" { value = { for k, _ in local.apps : k => google_cloud_run_domain_mapping.mapping[k].name } }
-
