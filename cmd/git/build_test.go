@@ -130,13 +130,22 @@ func TestGitLayer(t *testing.T) {
 		}
 	}
 	hasPack := false
+	objectsDir := path.Join(prefix, ".git", "objects")
 	for name := range got {
-		if strings.HasPrefix(name, path.Join(prefix, ".git", "objects", "pack")+"/") && strings.HasSuffix(name, ".pack") {
+		if strings.HasPrefix(name, path.Join(objectsDir, "pack")+"/") && strings.HasSuffix(name, ".pack") {
 			hasPack = true
+		}
+		// The objects must stay packed: nothing should be unpacked into loose
+		// objects/<2-hex>/<38-hex>. If that ever happens the whole repo's
+		// decompressed contents would be sitting in memory.
+		if rest, ok := strings.CutPrefix(name, objectsDir+"/"); ok {
+			if dir, _, found := strings.Cut(rest, "/"); found && dir != "pack" && dir != "info" {
+				t.Errorf("loose object in layer: %s", name)
+			}
 		}
 	}
 	if !hasPack {
-		t.Errorf("layer has no packfile under %s/.git/objects/pack/", prefix)
+		t.Errorf("layer has no packfile under %s/pack/", objectsDir)
 	}
 
 	// Worktree files must match a real checkout exactly.
