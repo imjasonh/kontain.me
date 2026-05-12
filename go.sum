@@ -483,6 +483,8 @@ github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458 h1:KSkVhq4WEv9rlP6G
 github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458/go.mod h1:Fa7ozpRszH4I+tsBQpsszFbSKnzIXPCvv2RorJijAMg=
 github.com/imjasonh/infinite-git v0.0.0-20260402080002-16db43a3afa4 h1:Ijnd9NANURkfdzmPsVzrZPbkhTdAVZxWnI5ZbRavKsw=
 github.com/imjasonh/infinite-git v0.0.0-20260402080002-16db43a3afa4/go.mod h1:ZNlXx8+BPRvWzqE+O7ubCmLK0TxECtmsCX+1cWFmBXk=
+github.com/imjasonh/infinite-git v0.0.0-20260403121828-4ff9f1cae02b h1:z3xqP8egwlUyC0mseituP4gNgabRQ5+8UZwclCz4aXk=
+github.com/imjasonh/infinite-git v0.0.0-20260403121828-4ff9f1cae02b/go.mod h1:ZNlXx8+BPRvWzqE+O7ubCmLK0TxECtmsCX+1cWFmBXk=
 github.com/in-toto/attestation v1.2.0 h1:aPRUZ3azbqD7yEBD5fP3TD8Dszf+YHo284SOcpahjQk=
 github.com/in-toto/attestation v1.2.0/go.mod h1:r79G45gOmzPismgObLSL+rZTFxUgZLOQJI6LofTZgXk=
 github.com/in-toto/in-toto-golang v0.10.0 h1:+s2eZQSK3WmWfYV85qXVSBfqgawi/5L02MaqA4o/tpM=

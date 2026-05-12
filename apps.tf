@@ -14,6 +14,13 @@ locals {
       timeout_seconds       = 120 # 2m
       base_image            = "cgr.dev/chainguard/static:latest-glibc"
     }
+    "git" : {
+      cpu                   = 1
+      ram                   = "2Gi"
+      container_concurrency = 5
+      timeout_seconds       = 900 # 15m
+      base_image            = "cgr.dev/chainguard/static:latest-glibc"
+    }
     "ko" : {
       cpu                   = 2
       ram                   = "4Gi"
@@ -47,10 +54,18 @@ locals {
       cpu                   = 1
       ram                   = "1Gi"
       container_concurrency = 1000
-      importpath            = "github.com/imjasonh/infinite-git"
+      importpath            = "github.com/imjasonh/infinite-git/cmd/infinite-git"
       base_image            = "cgr.dev/chainguard/git:latest"
       timeout_seconds       = 60 # 1m
     }
+    # "infinite-go" : {
+    #   cpu                   = 1
+    #   ram                   = "1Gi"
+    #   container_concurrency = 1000
+    #   importpath            = "github.com/imjasonh/infinite-git/cmd/infinite-go"
+    #   base_image            = "cgr.dev/chainguard/static:latest-glibc"
+    #   timeout_seconds       = 60 # 1m
+    # }
   }
 }
 

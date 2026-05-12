@@ -8,6 +8,7 @@ require (
 	github.com/chainguard-dev/clog v1.8.0
 	github.com/chainguard-dev/terraform-infra-common v1.0.2
 	github.com/dustin/go-humanize v1.0.1
+	github.com/go-git/go-git/v5 v5.17.2
 	github.com/google/go-containerregistry v0.21.3
 	github.com/google/ko v0.18.1
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
@@ -70,7 +71,6 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.8.0 // indirect
-	github.com/go-git/go-git/v5 v5.17.2 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
@@ -113,7 +113,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
-	github.com/imjasonh/infinite-git v0.0.0-20260402080002-16db43a3afa4 // indirect
+	github.com/imjasonh/infinite-git v0.0.0-20260403121828-4ff9f1cae02b // indirect
 	github.com/in-toto/attestation v1.2.0 // indirect
 	github.com/in-toto/in-toto-golang v0.10.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect

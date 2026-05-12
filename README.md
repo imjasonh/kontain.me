@@ -15,11 +15,19 @@ These include:
   [`ko`](https://github.com/google/ko).
 * [`apko.kontain.me`](./cmd/apko), which builds a minimal base image containing
   APK packages, using [`apko`](https://apko.dev).
+* [`git.kontain.me`](./cmd/git), which serves an image containing a shallow
+  clone of a Git repo at a given branch, tag, or commit, using
+  [`go-git`](https://github.com/go-git/go-git).
 * [`wait.kontain.me`](./cmd/wait), which enqueues a background task to serve a
   random image after some amount of time.
 
 This repo also serves [`viz.kontain.me`](./cmd/viz), which visualizes shared
 image layers using [Graphviz](https://graphviz.org/).
+
+There's also two other services in this random grab-bag:
+
+* [`infinite-git.kontain.me`](https://github.com/imjasonh/infinite-git) generates a new Git commit every time the repo is pulled
+* `infinite-go.kontain.me` (also in the `infinite-git` repo) generates new Go module version every time it's fetched
 
 # Caveats
 
