@@ -17,9 +17,17 @@ import (
 	"time"
 
 	"github.com/chainguard-dev/clog/gcp"
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
+	billyutil "github.com/go-git/go-billy/v5/util"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
+	"github.com/go-git/go-git/v5/plumbing/format/index"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -123,15 +131,7 @@ func (s *server) serveGitManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dir, err := os.MkdirTemp("", "git-*")
-	if err != nil {
-		slog.ErrorContext(ctx, "MkdirTemp", "err", err)
-		serve.Error(w, err)
-		return
-	}
-	defer os.RemoveAll(dir)
-
-	img, err := build(ctx, dir, cloneURL, repoName, refName, hash)
+	img, err := build(ctx, cloneURL, repoName, refName, hash)
 	if err != nil {
 		slog.ErrorContext(ctx, "build", "url", cloneURL, "ref", ref, "err", err)
 		serve.Error(w, err)
@@ -196,47 +196,13 @@ func resolveRef(ctx context.Context, cloneURL, ref string) (plumbing.Hash, plumb
 // baseRef contains git and busybox
 var baseRef = name.MustParseReference("cgr.dev/chainguard/git:latest-dev")
 
-// build clones cloneURL into dir/repoName and produces a single-layer image
-// containing that checkout at /git/<repoName>.
-func build(ctx context.Context, dir, cloneURL, repoName string, refName plumbing.ReferenceName, hash plumbing.Hash) (v1.Image, error) {
-	checkout := filepath.Join(dir, repoName)
-
-	if refName == "" {
-		// A bare commit SHA: full clone, then check the commit out.
-		repo, err := git.PlainCloneContext(ctx, checkout, false, &git.CloneOptions{
-			URL:  cloneURL,
-			Tags: git.NoTags,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("clone %q: %w", cloneURL, err)
-		}
-		wt, err := repo.Worktree()
-		if err != nil {
-			return nil, err
-		}
-		if err := wt.Checkout(&git.CheckoutOptions{Hash: hash}); err != nil {
-			return nil, fmt.Errorf("checkout %s: %w", hash, err)
-		}
-	} else {
-		// A branch or tag: shallow, single-branch clone.
-		refn := refName
-		if refn == plumbing.HEAD {
-			refn = "" // let go-git pick the default branch
-		}
-		if _, err := git.PlainCloneContext(ctx, checkout, false, &git.CloneOptions{
-			URL:           cloneURL,
-			ReferenceName: refn,
-			SingleBranch:  true,
-			Depth:         1,
-			Tags:          git.NoTags,
-		}); err != nil {
-			return nil, fmt.Errorf("clone %q at %q: %w", cloneURL, refName, err)
-		}
-	}
-
-	layer, err := tarball.LayerFromOpener(tarDirOpener(checkout, path.Join("git", repoName)))
+// build produces a single-layer image containing a checkout of the requested
+// commit at /git/<repoName>, alongside the (shallow) .git directory, on top of
+// the git base image.
+func build(ctx context.Context, cloneURL, repoName string, refName plumbing.ReferenceName, hash plumbing.Hash) (v1.Image, error) {
+	layer, err := gitLayer(ctx, cloneURL, refName, hash, path.Join("git", repoName))
 	if err != nil {
-		return nil, fmt.Errorf("LayerFromOpener: %w", err)
+		return nil, err
 	}
 	cfgLayer, err := gitConfigLayer()
 	if err != nil {
@@ -261,6 +227,79 @@ func build(ctx context.Context, dir, cloneURL, repoName string, refName plumbing
 	cf.Config.WorkingDir = path.Join("/git", repoName)
 	cf.Config.Entrypoint = []string{"sh"}
 	return mutate.ConfigFile(img, cf)
+}
+
+// gitLayer clones cloneURL into an in-memory git directory and returns a layer
+// containing a checkout of the requested commit (every entry rooted under
+// prefix, e.g. "git/<repoName>") alongside the (shallow) .git directory.
+//
+// Only the fetched packfile is buffered in memory (so offset deltas can be
+// resolved); worktree file contents are streamed straight into the layer tar
+// as the commit's tree is walked, rather than being unpacked to disk first.
+func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceName, hash plumbing.Hash, prefix string) (v1.Layer, error) {
+	dotgit := memfs.New()
+	store := filesystem.NewStorage(dotgit, cache.NewObjectLRUDefault())
+
+	var co git.CloneOptions
+	if refName == "" {
+		// A bare commit SHA: full clone, then resolve that commit.
+		co = git.CloneOptions{URL: cloneURL, Tags: git.NoTags, NoCheckout: true}
+	} else {
+		// A branch or tag: shallow, single-branch clone.
+		refn := refName
+		if refn == plumbing.HEAD {
+			refn = "" // let go-git pick the default branch
+		}
+		co = git.CloneOptions{
+			URL:           cloneURL,
+			ReferenceName: refn,
+			SingleBranch:  true,
+			Depth:         1,
+			Tags:          git.NoTags,
+			NoCheckout:    true,
+		}
+	}
+	repo, err := git.CloneContext(ctx, store, nil, &co)
+	if err != nil {
+		return nil, fmt.Errorf("clone %q: %w", cloneURL, err)
+	}
+
+	commitHash := hash
+	if refName != "" {
+		head, err := repo.Head()
+		if err != nil {
+			return nil, fmt.Errorf("resolving HEAD of %q: %w", cloneURL, err)
+		}
+		commitHash = head.Hash()
+	}
+	commit, err := resolveCommit(repo, commitHash)
+	if err != nil {
+		return nil, err
+	}
+	tree, err := commit.Tree()
+	if err != nil {
+		return nil, fmt.Errorf("tree for %s: %w", commit.Hash, err)
+	}
+
+	// The image ships a worktree, so the .git directory we copy out isn't bare;
+	// also record a .git/index for the checkout so `git status` looks clean.
+	if cfg, err := repo.Config(); err == nil {
+		cfg.Core.IsBare = false
+		_ = repo.Storer.SetConfig(cfg)
+	}
+	if err := writeIndex(repo, tree); err != nil {
+		return nil, fmt.Errorf("writing index: %w", err)
+	}
+
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		pr, pw := io.Pipe()
+		go func() { pw.CloseWithError(writeRepoTar(pw, dotgit, tree, prefix)) }()
+		return pr, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("LayerFromOpener: %w", err)
+	}
+	return layer, nil
 }
 
 var epoch = time.Unix(0, 0)
@@ -294,64 +333,162 @@ func gitConfigLayer() (v1.Layer, error) {
 	})
 }
 
-// tarDirOpener returns an opener that produces a tar stream of dir, with every
-// entry rooted under prefix.
-func tarDirOpener(dir, prefix string) tarball.Opener {
-	return func() (io.ReadCloser, error) {
-		pr, pw := io.Pipe()
-		go func() { pw.CloseWithError(writeTar(pw, dir, prefix)) }()
-		return pr, nil
+// resolveCommit returns the commit identified by h, dereferencing annotated tag
+// objects as needed.
+func resolveCommit(repo *git.Repository, h plumbing.Hash) (*object.Commit, error) {
+	for {
+		if c, err := repo.CommitObject(h); err == nil {
+			return c, nil
+		}
+		t, err := repo.TagObject(h)
+		if err != nil {
+			return nil, fmt.Errorf("resolving %s to a commit: %w", h, err)
+		}
+		h = t.Target
 	}
 }
 
-func writeTar(w io.Writer, dir, prefix string) error {
+// writeIndex records a .git/index describing the contents of tree, so the
+// checked-out worktree looks clean to git even though it's never materialized
+// on disk during the build.
+func writeIndex(repo *git.Repository, tree *object.Tree) error {
+	idx := &index.Index{Version: 2}
+	if err := tree.Files().ForEach(func(f *object.File) error {
+		idx.Entries = append(idx.Entries, &index.Entry{
+			Name: f.Name,
+			Hash: f.Hash,
+			Mode: f.Mode,
+			Size: uint32(f.Size),
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return repo.Storer.SetIndex(idx)
+}
+
+// writeRepoTar streams a tar of the checked-out worktree (every entry rooted
+// under prefix, e.g. "git/<repoName>") followed by the repository's .git
+// directory. Worktree file contents are read straight from the in-memory
+// packfile via tree; only .git itself lives in dotgit.
+func writeRepoTar(w io.Writer, dotgit billy.Filesystem, tree *object.Tree, prefix string) error {
 	tw := tar.NewWriter(w)
-	if err := filepath.Walk(dir, func(p string, fi os.FileInfo, err error) error {
+
+	walker := object.NewTreeWalker(tree, true, nil)
+	for {
+		name, entry, err := walker.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			walker.Close()
+			tw.Close()
+			return err
+		}
+		if err := writeWorktreeEntry(tw, tree, path.Join(prefix, name), entry); err != nil {
+			walker.Close()
+			tw.Close()
+			return err
+		}
+	}
+	walker.Close()
+
+	gitDir := path.Join(prefix, ".git")
+	if err := billyutil.Walk(dotgit, "/", func(p string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(dir, p)
-		if err != nil {
-			return err
-		}
-		if rel == "." {
+		rel := strings.Trim(filepath.ToSlash(p), "/")
+		if rel == "" {
 			return nil
 		}
-
-		var link string
-		if fi.Mode()&os.ModeSymlink != 0 {
-			if link, err = os.Readlink(p); err != nil {
-				return err
-			}
+		name := path.Join(gitDir, rel)
+		if fi.IsDir() {
+			return tw.WriteHeader(&tar.Header{
+				Typeflag: tar.TypeDir,
+				Name:     name + "/",
+				Mode:     0755,
+				ModTime:  epoch,
+			})
 		}
-		hdr, err := tar.FileInfoHeader(fi, link)
+		if err := tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeReg,
+			Name:     name,
+			Mode:     0644,
+			Size:     fi.Size(),
+			ModTime:  epoch,
+		}); err != nil {
+			return err
+		}
+		f, err := dotgit.Open(p)
 		if err != nil {
 			return err
 		}
-		hdr.Name = path.Join(prefix, filepath.ToSlash(rel))
-		if fi.IsDir() {
-			hdr.Name += "/"
+		_, err = io.Copy(tw, f)
+		if cerr := f.Close(); err == nil {
+			err = cerr
 		}
-		hdr.ModTime, hdr.AccessTime, hdr.ChangeTime = epoch, epoch, epoch
-		hdr.Uid, hdr.Gid, hdr.Uname, hdr.Gname = 0, 0, "", ""
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-		if fi.Mode().IsRegular() {
-			f, err := os.Open(p)
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(tw, f)
-			f.Close()
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+		return err
 	}); err != nil {
 		tw.Close()
 		return err
 	}
 	return tw.Close()
+}
+
+func writeWorktreeEntry(tw *tar.Writer, tree *object.Tree, name string, entry object.TreeEntry) error {
+	switch entry.Mode {
+	case filemode.Dir:
+		return tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeDir,
+			Name:     name + "/",
+			Mode:     0755,
+			ModTime:  epoch,
+		})
+	case filemode.Submodule:
+		// Submodules have no file content of their own.
+		return nil
+	}
+
+	f, err := tree.TreeEntryFile(&entry)
+	if err != nil {
+		return err
+	}
+
+	if entry.Mode == filemode.Symlink {
+		target, err := f.Contents()
+		if err != nil {
+			return err
+		}
+		return tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeSymlink,
+			Name:     name,
+			Linkname: target,
+			Mode:     0777,
+			ModTime:  epoch,
+		})
+	}
+
+	mode := int64(0644)
+	if entry.Mode == filemode.Executable {
+		mode = 0755
+	}
+	if err := tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeReg,
+		Name:     name,
+		Mode:     mode,
+		Size:     f.Size,
+		ModTime:  epoch,
+	}); err != nil {
+		return err
+	}
+	rc, err := f.Reader()
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(tw, rc)
+	if cerr := rc.Close(); err == nil {
+		err = cerr
+	}
+	return err
 }

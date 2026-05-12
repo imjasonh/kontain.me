@@ -8,6 +8,7 @@ require (
 	github.com/chainguard-dev/clog v1.8.0
 	github.com/chainguard-dev/terraform-infra-common v1.0.7
 	github.com/dustin/go-humanize v1.0.1
+	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.19.0
 	github.com/google/go-containerregistry v0.21.5
 	github.com/google/ko v0.18.1
@@ -70,7 +71,6 @@ require (
 	github.com/gliderlabs/ssh v0.3.9-0.20241212082318-d137aad99cd6 // indirect
 	github.com/go-chi/chi v4.1.2+incompatible // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.9.0 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.5 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
