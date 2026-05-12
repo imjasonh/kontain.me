@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -200,17 +201,25 @@ var baseRef = name.MustParseReference("cgr.dev/chainguard/git:latest-dev")
 // commit at /git/<repoName>, alongside the (shallow) .git directory, on top of
 // the git base image.
 func build(ctx context.Context, cloneURL, repoName string, refName plumbing.ReferenceName, hash plumbing.Hash) (v1.Image, error) {
-	layer, err := gitLayer(ctx, cloneURL, refName, hash, path.Join("git", repoName))
+	base, err := remote.Image(baseRef)
+	if err != nil {
+		return nil, fmt.Errorf("remote.Image(%q): %w", baseRef, err)
+	}
+	bcf, err := base.ConfigFile()
+	if err != nil {
+		return nil, fmt.Errorf("base ConfigFile: %w", err)
+	}
+	// Own the checkout as the user the image runs as, so `git` can write to it
+	// (e.g. `git fetch --unshallow`) without a permission error.
+	uid, gid := imageUser(bcf.Config.User)
+
+	layer, err := gitLayer(ctx, cloneURL, refName, hash, path.Join("git", repoName), uid, gid)
 	if err != nil {
 		return nil, err
 	}
 	cfgLayer, err := gitConfigLayer()
 	if err != nil {
 		return nil, fmt.Errorf("gitConfigLayer: %w", err)
-	}
-	base, err := remote.Image(baseRef)
-	if err != nil {
-		return nil, fmt.Errorf("remote.Image(%q): %w", baseRef, err)
 	}
 	img, err := mutate.AppendLayers(base, layer, cfgLayer)
 	if err != nil {
@@ -236,7 +245,7 @@ func build(ctx context.Context, cloneURL, repoName string, refName plumbing.Refe
 // Only the fetched packfile is buffered in memory (so offset deltas can be
 // resolved); worktree file contents are streamed straight into the layer tar
 // as the commit's tree is walked, rather than being unpacked to disk first.
-func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceName, hash plumbing.Hash, prefix string) (v1.Layer, error) {
+func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceName, hash plumbing.Hash, prefix string, uid, gid int) (v1.Layer, error) {
 	dotgit := memfs.New()
 	store := filesystem.NewStorage(dotgit, cache.NewObjectLRUDefault())
 
@@ -293,7 +302,7 @@ func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceNa
 
 	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
 		pr, pw := io.Pipe()
-		go func() { pw.CloseWithError(writeRepoTar(pw, dotgit, tree, prefix)) }()
+		go func() { pw.CloseWithError(writeRepoTar(pw, dotgit, tree, prefix, uid, gid)) }()
 		return pr, nil
 	})
 	if err != nil {
@@ -303,6 +312,19 @@ func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceNa
 }
 
 var epoch = time.Unix(0, 0)
+
+// tarDir writes a directory header named name (with a trailing slash), owned by
+// uid:gid, mode 0755.
+func tarDir(tw *tar.Writer, name string, uid, gid int) error {
+	return tw.WriteHeader(&tar.Header{
+		Typeflag: tar.TypeDir,
+		Name:     strings.TrimSuffix(name, "/") + "/",
+		Mode:     0755,
+		Uid:      uid,
+		Gid:      gid,
+		ModTime:  epoch,
+	})
+}
 
 // gitConfigLayer is a layer adding /etc/gitconfig that marks every directory as
 // safe, so the bundled git won't refuse to operate on the checkout when the
@@ -331,6 +353,18 @@ func gitConfigLayer() (v1.Layer, error) {
 	return tarball.LayerFromOpener(func() (io.ReadCloser, error) {
 		return io.NopCloser(bytes.NewReader(b)), nil
 	})
+}
+
+// imageUser returns the numeric uid/gid an image's configured User runs as
+// (e.g. "65532" or "65532:65532"). A non-numeric or empty User maps to root.
+func imageUser(user string) (uid, gid int) {
+	u, g, hasGroup := strings.Cut(user, ":")
+	uid, _ = strconv.Atoi(u)
+	if !hasGroup {
+		return uid, uid
+	}
+	gid, _ = strconv.Atoi(g)
+	return uid, gid
 }
 
 // resolveCommit returns the commit identified by h, dereferencing annotated tag
@@ -371,8 +405,20 @@ func writeIndex(repo *git.Repository, tree *object.Tree) error {
 // under prefix, e.g. "git/<repoName>") followed by the repository's .git
 // directory. Worktree file contents are read straight from the in-memory
 // packfile via tree; only .git itself lives in dotgit.
-func writeRepoTar(w io.Writer, dotgit billy.Filesystem, tree *object.Tree, prefix string) error {
+func writeRepoTar(w io.Writer, dotgit billy.Filesystem, tree *object.Tree, prefix string, uid, gid int) error {
 	tw := tar.NewWriter(w)
+
+	// Emit prefix's ancestor directories ("git/", "git/<repoName>/") and, below,
+	// the ".git" directory itself, owned by uid:gid — otherwise the image
+	// extractor auto-creates them root-owned and git can't write inside them
+	// (e.g. `git fetch` creating .git/FETCH_HEAD).
+	dirs := strings.Split(prefix, "/")
+	for i := range dirs {
+		if err := tarDir(tw, strings.Join(dirs[:i+1], "/"), uid, gid); err != nil {
+			tw.Close()
+			return err
+		}
+	}
 
 	walker := object.NewTreeWalker(tree, true, nil)
 	for {
@@ -385,7 +431,7 @@ func writeRepoTar(w io.Writer, dotgit billy.Filesystem, tree *object.Tree, prefi
 			tw.Close()
 			return err
 		}
-		if err := writeWorktreeEntry(tw, tree, path.Join(prefix, name), entry); err != nil {
+		if err := writeWorktreeEntry(tw, tree, path.Join(prefix, name), entry, uid, gid); err != nil {
 			walker.Close()
 			tw.Close()
 			return err
@@ -394,6 +440,10 @@ func writeRepoTar(w io.Writer, dotgit billy.Filesystem, tree *object.Tree, prefi
 	walker.Close()
 
 	gitDir := path.Join(prefix, ".git")
+	if err := tarDir(tw, gitDir, uid, gid); err != nil {
+		tw.Close()
+		return err
+	}
 	if err := billyutil.Walk(dotgit, "/", func(p string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -404,17 +454,14 @@ func writeRepoTar(w io.Writer, dotgit billy.Filesystem, tree *object.Tree, prefi
 		}
 		name := path.Join(gitDir, rel)
 		if fi.IsDir() {
-			return tw.WriteHeader(&tar.Header{
-				Typeflag: tar.TypeDir,
-				Name:     name + "/",
-				Mode:     0755,
-				ModTime:  epoch,
-			})
+			return tarDir(tw, name, uid, gid)
 		}
 		if err := tw.WriteHeader(&tar.Header{
 			Typeflag: tar.TypeReg,
 			Name:     name,
 			Mode:     0644,
+			Uid:      uid,
+			Gid:      gid,
 			Size:     fi.Size(),
 			ModTime:  epoch,
 		}); err != nil {
@@ -436,15 +483,10 @@ func writeRepoTar(w io.Writer, dotgit billy.Filesystem, tree *object.Tree, prefi
 	return tw.Close()
 }
 
-func writeWorktreeEntry(tw *tar.Writer, tree *object.Tree, name string, entry object.TreeEntry) error {
+func writeWorktreeEntry(tw *tar.Writer, tree *object.Tree, name string, entry object.TreeEntry, uid, gid int) error {
 	switch entry.Mode {
 	case filemode.Dir:
-		return tw.WriteHeader(&tar.Header{
-			Typeflag: tar.TypeDir,
-			Name:     name + "/",
-			Mode:     0755,
-			ModTime:  epoch,
-		})
+		return tarDir(tw, name, uid, gid)
 	case filemode.Submodule:
 		// Submodules have no file content of their own.
 		return nil
@@ -465,6 +507,8 @@ func writeWorktreeEntry(tw *tar.Writer, tree *object.Tree, name string, entry ob
 			Name:     name,
 			Linkname: target,
 			Mode:     0777,
+			Uid:      uid,
+			Gid:      gid,
 			ModTime:  epoch,
 		})
 	}
@@ -477,6 +521,8 @@ func writeWorktreeEntry(tw *tar.Writer, tree *object.Tree, name string, entry ob
 		Typeflag: tar.TypeReg,
 		Name:     name,
 		Mode:     mode,
+		Uid:      uid,
+		Gid:      gid,
 		Size:     f.Size,
 		ModTime:  epoch,
 	}); err != nil {

@@ -22,16 +22,19 @@ const (
 	testRef      = "master"
 )
 
-// layerFiles builds the git layer for the test repo and returns a map of
-// "<perm>:<sha256>" (or "symlink:<target>") keyed by tar entry name.
-func layerFiles(t *testing.T, prefix string) map[string]string {
+// layerFiles builds the git layer for the test repo (owned by uid:gid 4242) and
+// returns the regular files/symlinks as "<perm>:<sha256>" (or "symlink:<target>")
+// and the directory entries (value unused), both keyed by tar entry name. Every
+// entry is checked to be owned by 4242:4242.
+func layerFiles(t *testing.T, prefix string) (files, dirs map[string]string) {
 	t.Helper()
+	const owner = 4242
 	ctx := context.Background()
 	hash, refName, err := resolveRef(ctx, testRepoURL, testRef)
 	if err != nil {
 		t.Fatalf("resolveRef: %v", err)
 	}
-	layer, err := gitLayer(ctx, testRepoURL, refName, hash, prefix)
+	layer, err := gitLayer(ctx, testRepoURL, refName, hash, prefix, owner, owner)
 	if err != nil {
 		t.Fatalf("gitLayer: %v", err)
 	}
@@ -43,7 +46,8 @@ func layerFiles(t *testing.T, prefix string) map[string]string {
 		t.Fatalf("Uncompressed: %v", err)
 	}
 	defer rc.Close()
-	files := map[string]string{}
+	files = map[string]string{}
+	dirs = map[string]string{}
 	tr := tar.NewReader(rc)
 	for {
 		hdr, err := tr.Next()
@@ -53,7 +57,12 @@ func layerFiles(t *testing.T, prefix string) map[string]string {
 		if err != nil {
 			t.Fatalf("tar.Next: %v", err)
 		}
+		if hdr.Uid != owner || hdr.Gid != owner {
+			t.Errorf("%s: owner %d:%d, want %d:%d", hdr.Name, hdr.Uid, hdr.Gid, owner, owner)
+		}
 		switch hdr.Typeflag {
+		case tar.TypeDir:
+			dirs[hdr.Name] = fmt.Sprintf("%o", hdr.Mode&0777)
 		case tar.TypeSymlink:
 			files[hdr.Name] = "symlink:" + hdr.Linkname
 		case tar.TypeReg:
@@ -64,7 +73,7 @@ func layerFiles(t *testing.T, prefix string) map[string]string {
 			files[hdr.Name] = fmt.Sprintf("%o:%x", hdr.Mode&0777, h.Sum(nil))
 		}
 	}
-	return files
+	return files, dirs
 }
 
 // clonedWorktreeFiles does a real shallow clone and returns the same kind of
@@ -121,7 +130,16 @@ func TestGitLayer(t *testing.T) {
 		t.Skip("clones from github")
 	}
 	prefix := path.Join("git", testRepoName)
-	got := layerFiles(t, prefix)
+	got, dirs := layerFiles(t, prefix)
+
+	// The checkout's parent directories must be in the layer (owned by the image
+	// user, checked in layerFiles) rather than auto-created root-owned, so git
+	// can write inside them, e.g. .git/FETCH_HEAD on `git fetch`.
+	for _, d := range []string{"git", prefix, path.Join(prefix, ".git")} {
+		if _, ok := dirs[d+"/"]; !ok {
+			t.Errorf("layer missing directory entry %s/", d)
+		}
+	}
 
 	// The .git directory is shipped so the git CLI works inside the checkout.
 	for _, want := range []string{"HEAD", "config", "index"} {
