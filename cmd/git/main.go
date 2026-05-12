@@ -213,7 +213,7 @@ func build(ctx context.Context, cloneURL, repoName string, refName plumbing.Refe
 	// (e.g. `git fetch --unshallow`) without a permission error.
 	uid, gid := imageUser(bcf.Config.User)
 
-	layer, err := gitLayer(ctx, cloneURL, refName, hash, path.Join("git", repoName), uid, gid)
+	layer, commit, err := gitLayer(ctx, cloneURL, refName, hash, path.Join("git", repoName), uid, gid)
 	if err != nil {
 		return nil, err
 	}
@@ -221,9 +221,18 @@ func build(ctx context.Context, cloneURL, repoName string, refName plumbing.Refe
 	if err != nil {
 		return nil, fmt.Errorf("gitConfigLayer: %w", err)
 	}
-	img, err := mutate.AppendLayers(base, layer, cfgLayer)
+	// Record the resolved commit on the checkout layer so it's visible in the
+	// image manifest.
+	img, err := mutate.Append(base,
+		mutate.Addendum{Layer: layer, Annotations: map[string]string{
+			"me.kontain.git.commit": commit.String(),
+			"me.kontain.git.source": cloneURL,
+			"me.kontain.git.ref":    refName.String(),
+		}},
+		mutate.Addendum{Layer: cfgLayer},
+	)
 	if err != nil {
-		return nil, fmt.Errorf("AppendLayers: %w", err)
+		return nil, fmt.Errorf("Append: %w", err)
 	}
 	cf, err := img.ConfigFile()
 	if err != nil {
@@ -240,12 +249,13 @@ func build(ctx context.Context, cloneURL, repoName string, refName plumbing.Refe
 
 // gitLayer clones cloneURL into an in-memory git directory and returns a layer
 // containing a checkout of the requested commit (every entry rooted under
-// prefix, e.g. "git/<repoName>") alongside the (shallow) .git directory.
+// prefix, e.g. "git/<repoName>") alongside the (shallow) .git directory, plus
+// the commit that was checked out.
 //
 // Only the fetched packfile is buffered in memory (so offset deltas can be
 // resolved); worktree file contents are streamed straight into the layer tar
 // as the commit's tree is walked, rather than being unpacked to disk first.
-func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceName, hash plumbing.Hash, prefix string, uid, gid int) (v1.Layer, error) {
+func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceName, hash plumbing.Hash, prefix string, uid, gid int) (v1.Layer, plumbing.Hash, error) {
 	dotgit := memfs.New()
 	store := filesystem.NewStorage(dotgit, cache.NewObjectLRUDefault())
 
@@ -270,24 +280,24 @@ func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceNa
 	}
 	repo, err := git.CloneContext(ctx, store, nil, &co)
 	if err != nil {
-		return nil, fmt.Errorf("clone %q: %w", cloneURL, err)
+		return nil, plumbing.ZeroHash, fmt.Errorf("clone %q: %w", cloneURL, err)
 	}
 
 	commitHash := hash
 	if refName != "" {
 		head, err := repo.Head()
 		if err != nil {
-			return nil, fmt.Errorf("resolving HEAD of %q: %w", cloneURL, err)
+			return nil, plumbing.ZeroHash, fmt.Errorf("resolving HEAD of %q: %w", cloneURL, err)
 		}
 		commitHash = head.Hash()
 	}
 	commit, err := resolveCommit(repo, commitHash)
 	if err != nil {
-		return nil, err
+		return nil, plumbing.ZeroHash, err
 	}
 	tree, err := commit.Tree()
 	if err != nil {
-		return nil, fmt.Errorf("tree for %s: %w", commit.Hash, err)
+		return nil, plumbing.ZeroHash, fmt.Errorf("tree for %s: %w", commit.Hash, err)
 	}
 
 	// The image ships a worktree, so the .git directory we copy out isn't bare;
@@ -297,7 +307,7 @@ func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceNa
 		_ = repo.Storer.SetConfig(cfg)
 	}
 	if err := writeIndex(repo, tree); err != nil {
-		return nil, fmt.Errorf("writing index: %w", err)
+		return nil, plumbing.ZeroHash, fmt.Errorf("writing index: %w", err)
 	}
 
 	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
@@ -306,9 +316,9 @@ func gitLayer(ctx context.Context, cloneURL string, refName plumbing.ReferenceNa
 		return pr, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("LayerFromOpener: %w", err)
+		return nil, plumbing.ZeroHash, fmt.Errorf("LayerFromOpener: %w", err)
 	}
-	return layer, nil
+	return layer, commit.Hash, nil
 }
 
 var epoch = time.Unix(0, 0)

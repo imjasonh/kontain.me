@@ -34,9 +34,12 @@ func layerFiles(t *testing.T, prefix string) (files, dirs map[string]string) {
 	if err != nil {
 		t.Fatalf("resolveRef: %v", err)
 	}
-	layer, err := gitLayer(ctx, testRepoURL, refName, hash, prefix, owner, owner)
+	layer, commit, err := gitLayer(ctx, testRepoURL, refName, hash, prefix, owner, owner)
 	if err != nil {
 		t.Fatalf("gitLayer: %v", err)
+	}
+	if commit != hash {
+		t.Errorf("gitLayer resolved %s, resolveRef gave %s", commit, hash)
 	}
 	if err := validate.Layer(layer); err != nil {
 		t.Fatalf("validate.Layer: %v", err)
