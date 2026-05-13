@@ -21,13 +21,14 @@ These include:
 * [`wait.kontain.me`](./cmd/wait), which enqueues a background task to serve a
   random image after some amount of time.
 
-This repo also serves [`viz.kontain.me`](./cmd/viz), which visualizes shared
-image layers using [Graphviz](https://graphviz.org/).
+This repo also serves a few non-registry oddities:
 
-There's also two other services in this random grab-bag:
-
-* [`infinite-git.kontain.me`](https://github.com/imjasonh/infinite-git) generates a new Git commit every time the repo is pulled
-* `infinite-go.kontain.me` (also in the `infinite-git` repo) generates new Go module version every time it's fetched
+* [`viz.kontain.me`](./cmd/viz) visualizes shared image layers using
+  [Graphviz](https://graphviz.org/).
+* [`infinite-git.kontain.me`](./cmd/infinite-git) is a Git HTTP server that
+  generates a new commit every time the repo is pulled.
+* [`infinite-go.kontain.me`](./cmd/infinite-go) is a Go module that generates
+  a new module version every time it's fetched.
 
 # Caveats
 

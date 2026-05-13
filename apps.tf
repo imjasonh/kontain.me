@@ -54,18 +54,16 @@ locals {
       cpu                   = 1
       ram                   = "1Gi"
       container_concurrency = 1000
-      importpath            = "github.com/imjasonh/infinite-git/cmd/infinite-git"
-      base_image            = "cgr.dev/chainguard/git:latest"
+      base_image            = "cgr.dev/chainguard/static:latest-glibc"
       timeout_seconds       = 60 # 1m
     }
-    # "infinite-go" : {
-    #   cpu                   = 1
-    #   ram                   = "1Gi"
-    #   container_concurrency = 1000
-    #   importpath            = "github.com/imjasonh/infinite-git/cmd/infinite-go"
-    #   base_image            = "cgr.dev/chainguard/static:latest-glibc"
-    #   timeout_seconds       = 60 # 1m
-    # }
+    "infinite-go" : {
+      cpu                   = 1
+      ram                   = "1Gi"
+      container_concurrency = 1000
+      base_image            = "cgr.dev/chainguard/static:latest-glibc"
+      timeout_seconds       = 60 # 1m
+    }
   }
 }
 
@@ -73,7 +71,7 @@ resource "ko_build" "image" {
   for_each = local.apps
 
   repo       = "gcr.io/${var.project_id}/${each.key}"
-  importpath = lookup(each.value, "importpath", "github.com/imjasonh/kontain.me/cmd/${each.key}")
+  importpath = "github.com/imjasonh/kontain.me/cmd/${each.key}"
   base_image = each.value.base_image
 }
 
@@ -150,7 +148,7 @@ resource "google_dns_record_set" "dns-record" {
 }
 
 resource "null_resource" "test" {
-  for_each   = { for k, v in local.apps : k => v if !contains(keys(v), "importpath") }
+  for_each   = local.apps
   depends_on = [google_dns_record_set.dns-record]
 
   # Changes to any service requires re-testing it.
