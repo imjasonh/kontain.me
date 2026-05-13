@@ -81,8 +81,8 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func cacheKey(cloneURL string, hash plumbing.Hash) string {
-	return fmt.Sprintf("git-%x", md5.Sum([]byte(cloneURL+"@"+hash.String())))
+func cacheKey(cloneURL string, ref string, hash plumbing.Hash) string {
+	return fmt.Sprintf("git-%x", md5.Sum([]byte(cloneURL+":"+ref+"@"+hash.String())))
 }
 
 var fullSHA = regexp.MustCompile(`^[0-9a-f]{40}$`)
@@ -125,7 +125,7 @@ func (s *server) serveGitManifest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ck := cacheKey(cloneURL, hash)
+	ck := cacheKey(cloneURL, ref, hash)
 	if _, err := s.storage.BlobExists(ctx, ck); err == nil {
 		slog.InfoContext(ctx, "serving cached manifest", "ck", ck)
 		serve.Blob(w, r, ck)
