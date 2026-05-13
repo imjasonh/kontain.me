@@ -24,7 +24,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	if err != nil {
 		t.Fatalf("failed to create server repo: %v", err)
 	}
-	srv := server.New(serverRepo, content)
+	srv := server.New(serverRepo, content, "")
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	return ts

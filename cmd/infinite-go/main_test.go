@@ -22,7 +22,7 @@ func newGoTestServer(t *testing.T, modulePath string) *httptest.Server {
 	if err != nil {
 		t.Fatalf("failed to create server repo: %v", err)
 	}
-	srv := server.New(serverRepo, content)
+	srv := server.New(serverRepo, content, "")
 	ts := httptest.NewServer(goGetMiddleware(modulePath, srv.Handler()))
 	t.Cleanup(ts.Close)
 	return ts
@@ -41,7 +41,7 @@ func newGoTestServerOnPort(t *testing.T, modulePath string, port int) *httptest.
 	if err != nil {
 		t.Fatalf("failed to create server repo: %v", err)
 	}
-	srv := server.New(serverRepo, content)
+	srv := server.New(serverRepo, content, "")
 	ts := httptest.NewUnstartedServer(goGetMiddleware(modulePath, srv.Handler()))
 	ts.Listener = ln
 	ts.Start()

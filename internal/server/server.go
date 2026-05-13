@@ -11,16 +11,20 @@ import (
 
 // Server handles Git HTTP protocol requests.
 type Server struct {
-	repo      *repo.Repository
-	generator *generator.Generator
-	mu        sync.Mutex
+	repo           *repo.Repository
+	generator      *generator.Generator
+	staticRedirect string
+	mu             sync.Mutex
 }
 
-// New creates a new Git HTTP server.
-func New(r *repo.Repository, provider generator.ContentProvider) *Server {
+// New creates a new Git HTTP server. staticRedirect, if non-empty, is the URL
+// that GET / 303-redirects to (matching the convention of the other kontain.me
+// apps, which redirect the root to their source on GitHub).
+func New(r *repo.Repository, provider generator.ContentProvider, staticRedirect string) *Server {
 	return &Server{
-		repo:      r,
-		generator: generator.New(r, provider),
+		repo:           r,
+		generator:      generator.New(r, provider),
+		staticRedirect: staticRedirect,
 	}
 }
 
@@ -60,8 +64,12 @@ func (s *Server) handleReceivePack(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Push access denied", http.StatusForbidden)
 }
 
-// handleStatic serves static Git files (for dumb protocol).
+// handleStatic redirects bare / to the configured source URL (or 404s anything
+// else — only the smart Git protocol paths are otherwise handled).
 func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
-	// For now, we'll focus on smart protocol only
+	if r.URL.Path == "/" && s.staticRedirect != "" {
+		http.Redirect(w, r, s.staticRedirect, http.StatusSeeOther)
+		return
+	}
 	http.NotFound(w, r)
 }

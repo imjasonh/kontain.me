@@ -117,7 +117,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := server.New(gitRepo, content)
+	srv := server.New(gitRepo, content, "https://github.com/imjasonh/kontain.me/blob/main/cmd/infinite-go")
 	handler := goGetMiddleware(env.ModulePath, srv.Handler())
 
 	httpServer := &http.Server{
