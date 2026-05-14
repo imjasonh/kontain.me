@@ -2,7 +2,7 @@ locals {
   apps = {
     "apko" : {
       cpu                   = 1
-      ram                   = "512Mi"
+      ram                   = "1Gi"
       container_concurrency = 1
       timeout_seconds       = 900 # 15m
     }
@@ -19,7 +19,7 @@ locals {
       timeout_seconds       = 900 # 15m
     }
     "ko" : {
-      cpu                   = 2
+      cpu                   = 4
       ram                   = "4Gi"
       container_concurrency = 1
       timeout_seconds       = 900 # 15m

@@ -23,5 +23,14 @@ if [ "$before" = "$after" ]; then
     exit 1
 fi
 
-GOPROXY=direct go get infinite-git.kontain.me@latest
-GOPROXY=direct go get infinite-git.kontain.me@latest
+# `go get` needs to run from a module that isn't infinite-go.kontain.me itself.
+modtest=$(mktemp -d)
+cd "$modtest"
+cat > go.mod <<EOF
+module test
+
+go 1.24
+EOF
+GOPROXY=direct go get infinite-go.kontain.me@latest
+GOPROXY=direct go get infinite-go.kontain.me@latest
+rm -rf "$modtest"

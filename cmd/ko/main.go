@@ -259,16 +259,16 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 
 	// Create a tempdir and cd into it
 	// (This is only safe because concurrency=1)
-	tmpdir, err := os.CreateTemp("", "ko-*")
+	tmpdir, err := os.MkdirTemp("", "ko-*")
 	if err != nil {
 		return nil, err
 	}
 	// Clean up the temp dir. If building is successful, we'll serve a
 	// cached manifest and not need to rebuild.
-	defer os.RemoveAll(tmpdir.Name())
+	defer os.RemoveAll(tmpdir)
 
 	// Unzip and validate the module zip file.
-	if err := zip.Unzip(tmpdir.Name(), module.Version{
+	if err := zip.Unzip(tmpdir, module.Version{
 		Path:    mod,
 		Version: version,
 	}, tmpzip.Name()); err != nil {
@@ -277,7 +277,7 @@ func (s *server) fetchAndBuild(ctx context.Context, mod, version, filepath strin
 
 	// ko build the package.
 	g, err := build.NewGo(
-		ctx, tmpdir.Name(),
+		ctx, tmpdir,
 		build.WithBaseImages(s.getBaseImage),
 		build.WithPlatforms("all"),
 		build.WithConfig(map[string]build.Config{
