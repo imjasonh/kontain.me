@@ -38,12 +38,12 @@ locals {
       timeout_seconds       = 60 # 1m
       //alert_id              = module.prober.alert_id
     }
-    wait : {
-      cpu                   = 1
-      ram                   = "1Gi"
-      container_concurrency = 80
-      timeout_seconds       = 60 # 1m
-    }
+    # wait : {
+    #   cpu                   = 1
+    #   ram                   = "1Gi"
+    #   container_concurrency = 80
+    #   timeout_seconds       = 60 # 1m
+    # }
     # "viz" : {
     #   cpu                   = 1
     #   ram                   = "1Gi"

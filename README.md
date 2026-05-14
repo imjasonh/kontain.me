@@ -8,18 +8,22 @@ Serving container images generated on-demand, at the time they are requested.
 These include:
 
 * [`random.kontain.me`](./cmd/random), which serves randomly-generated images.
+  - [browse](https://oci.dag.dev/?image=random.kontain.me/random)
 * [`mirror.kontain.me`](./cmd/mirror), which pulls and caches images from other registries.
+  - [browse](https://oci.dag.dev/?image=mirror.kontain.me/busybox)
 * [`flatten.kontain.me`](./cmd/flatten), which pulls and flattens images from other registries,
   so they contain only one layer.
+  - [browse](https://oci.dag.dev/?image=flatten.kontain.me/cgr.dev/chainguard/go)
 * [`ko.kontain.me`](./cmd/ko), which builds a Go binary into a container image using
   [`ko`](https://github.com/google/ko).
+  - [browse](https://oci.dag.dev/?image=ko.kontain.me/github.com/ko-build/ko/test)
 * [`apko.kontain.me`](./cmd/apko), which builds a minimal base image containing
   APK packages, using [`apko`](https://apko.dev).
+  - [browse](https://oci.dag.dev/?image=apko.kontain.me/kubectl)
 * [`git.kontain.me`](./cmd/git), which serves an image containing a shallow
   clone of a Git repo at a given branch, tag, or commit, using
   [`go-git`](https://github.com/go-git/go-git).
-* [`wait.kontain.me`](./cmd/wait), which enqueues a background task to serve a
-  random image after some amount of time.
+  - [browse](https://oci.dag.dev/?image=git.kontain.me/github.com/imjasonh/kontain.me)
 
 This repo also serves a few non-registry oddities:
 
@@ -41,8 +45,7 @@ This repo also serves a few non-registry oddities:
 
 # How it works
 
-The service is implemented using [Google Cloud
-Run](https://cloud.google.com/run).
+The service is built on [Google Cloud Run](https://cloud.google.com/run).
 
 When the service receives a request for an image manifest, it parses the
 request and generates layers for the requested image, writing the manifest and

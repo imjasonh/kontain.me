@@ -8,7 +8,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
-var ErrNotFound = errors.New("repository or commit not found")
+var ErrNotFound = errors.New("not found")
 
 func Error(w http.ResponseWriter, err error) {
 	code := "MANIFEST_UNKNOWN"
