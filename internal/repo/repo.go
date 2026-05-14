@@ -229,7 +229,6 @@ func (r *Repository) GetCapabilities() []string {
 		"no-progress",
 		"include-tag",
 		"multi_ack_detailed",
-		"no-done",
 		"symref=HEAD:refs/heads/main",
 		"agent=infinite-git/1.0",
 	}

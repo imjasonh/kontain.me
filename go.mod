@@ -189,6 +189,7 @@ require (
 	gopkg.in/ini.v1 v1.67.2 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	infinite-go.kontain.me v0.0.0-20260514014836-7342d5554691 // indirect
 	k8s.io/apimachinery v0.36.0 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	sigs.k8s.io/release-utils v0.12.4 // indirect

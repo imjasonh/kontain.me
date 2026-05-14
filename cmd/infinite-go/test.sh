@@ -23,5 +23,5 @@ if [ "$before" = "$after" ]; then
     exit 1
 fi
 
-go get infinite-git.kontain.me@latest
-go get infinite-git.kontain.me@latest
+GOPROXY=direct go get infinite-git.kontain.me@latest
+GOPROXY=direct go get infinite-git.kontain.me@latest

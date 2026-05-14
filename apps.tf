@@ -5,21 +5,18 @@ locals {
       ram                   = "512Mi"
       container_concurrency = 1
       timeout_seconds       = 900 # 15m
-      base_image            = "cgr.dev/chainguard/static:latest-glibc"
     }
     "flatten" : {
       cpu                   = 1
       ram                   = "1Gi"
       container_concurrency = 80
       timeout_seconds       = 120 # 2m
-      base_image            = "cgr.dev/chainguard/static:latest-glibc"
     }
     "git" : {
       cpu                   = 1
       ram                   = "2Gi"
       container_concurrency = 5
       timeout_seconds       = 900 # 15m
-      base_image            = "cgr.dev/chainguard/static:latest-glibc"
     }
     "ko" : {
       cpu                   = 2
@@ -33,14 +30,12 @@ locals {
       ram                   = "4Gi"
       container_concurrency = 1
       timeout_seconds       = 900 # 15m
-      base_image            = "cgr.dev/chainguard/static:latest-glibc"
     }
     "random" : {
       cpu                   = 1
       ram                   = "256Mi"
       container_concurrency = 1000
       timeout_seconds       = 60 # 1m
-      base_image            = "cgr.dev/chainguard/static:latest-glibc"
       //alert_id              = module.prober.alert_id
     }
     wait : {
@@ -48,20 +43,23 @@ locals {
       ram                   = "1Gi"
       container_concurrency = 80
       timeout_seconds       = 60 # 1m
-      base_image            = "cgr.dev/chainguard/static:latest-glibc"
     }
+    # "viz" : {
+    #   cpu                   = 1
+    #   ram                   = "1Gi"
+    #   container_concurrency = 1000
+    #   timeout_seconds       = 60 # 1m
+    # }
     "infinite-git" : {
       cpu                   = 1
       ram                   = "1Gi"
       container_concurrency = 1000
-      base_image            = "cgr.dev/chainguard/static:latest-glibc"
       timeout_seconds       = 60 # 1m
     }
     "infinite-go" : {
       cpu                   = 1
       ram                   = "1Gi"
       container_concurrency = 1000
-      base_image            = "cgr.dev/chainguard/static:latest-glibc"
       timeout_seconds       = 60 # 1m
     }
   }
@@ -72,7 +70,7 @@ resource "ko_build" "image" {
 
   repo       = "gcr.io/${var.project_id}/${each.key}"
   importpath = "github.com/imjasonh/kontain.me/cmd/${each.key}"
-  base_image = each.value.base_image
+  base_image = lookup(each.value, "base_image", "cgr.dev/chainguard/static:latest")
 }
 
 resource "google_cloud_run_service" "service" {
@@ -151,8 +149,8 @@ resource "null_resource" "test" {
   for_each   = local.apps
   depends_on = [google_dns_record_set.dns-record]
 
-  # Changes to any service requires re-testing it.
-  triggers = { service = google_cloud_run_service.service[each.key].id }
+  # Re-run tests whenever the deployed image changes.
+  triggers = { image = ko_build.image[each.key].image_ref }
 
   provisioner "local-exec" { command = file("${path.module}/cmd/${each.key}/test.sh") }
 }

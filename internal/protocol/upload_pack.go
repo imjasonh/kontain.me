@@ -53,15 +53,31 @@ func (u *UploadPack) HandleRequest(r io.Reader, w io.Writer) error {
 		}
 	}
 
+	// Detect multi_ack mode from advertised client capabilities. With
+	// multi_ack_detailed (the modern default), we send "ACK <sha> common"
+	// per match and a single final ACK/NAK after "done" — no per-round
+	// NAK. With plain multi_ack we send "ACK <sha> continue" and a NAK
+	// per round with no ACKs. Without either capability the protocol
+	// expects at most one ACK before "done" plus a final ACK/NAK.
+	multiAck, multiAckDetailed := false, false
+	for _, cap := range capabilities {
+		switch cap {
+		case "multi_ack":
+			multiAck = true
+		case "multi_ack_detailed":
+			multiAckDetailed = true
+		}
+	}
+
 	// Negotiation phase: the client sends "have" lines for objects it
 	// already has, and we ACK the ones we recognize so git can compute a
-	// minimal pack. With multi_ack_detailed we send "ACK <sha> common"
-	// for each recognized object.
+	// minimal pack.
 	var common []string
+	gotDone := false
 
 	for {
 		var haves []string
-		gotDone := false
+		sawAny := false
 
 		for {
 			line, err := reader.ReadString()
@@ -71,6 +87,7 @@ func (u *UploadPack) HandleRequest(r io.Reader, w io.Writer) error {
 			if err != nil {
 				return fmt.Errorf("reading negotiation: %w", err)
 			}
+			sawAny = true
 
 			if line == "done" {
 				gotDone = true
@@ -82,15 +99,27 @@ func (u *UploadPack) HandleRequest(r io.Reader, w io.Writer) error {
 			}
 		}
 
-		// ACK objects we have, NAK the rest. Process haves even when
-		// "done" arrived in the same batch — the client needs ACKs
-		// before we send the packfile.
+		// A round with no content at all means the client closed the
+		// negotiation without sending "done" (e.g. with the no-done
+		// capability, or simply ran out of haves). Treat it as the end
+		// of negotiation so we don't spin reading EOF forever.
+		if !sawAny && !gotDone {
+			break
+		}
+
+		// ACK objects we have. Process haves even when "done" arrived
+		// in the same batch — the client needs ACKs before we send the
+		// packfile.
 		var lastAck string
 		for _, have := range haves {
 			if _, err := u.repo.ReadObjectFull(have); err == nil {
 				common = append(common, have)
 				lastAck = have
-				if err := writer.WriteString(fmt.Sprintf("ACK %s common\n", have)); err != nil {
+				ackType := "common"
+				if !multiAckDetailed {
+					ackType = "continue"
+				}
+				if err := writer.WriteString(fmt.Sprintf("ACK %s %s\n", have, ackType)); err != nil {
 					return fmt.Errorf("writing ACK: %w", err)
 				}
 			}
@@ -100,25 +129,33 @@ func (u *UploadPack) HandleRequest(r io.Reader, w io.Writer) error {
 			break
 		}
 
-		if lastAck != "" {
-			if err := writer.WriteString(fmt.Sprintf("ACK %s continue\n", lastAck)); err != nil {
-				return fmt.Errorf("writing ACK continue: %w", err)
-			}
-		} else {
+		// Per-round NAK is only sent for plain multi_ack. With
+		// multi_ack_detailed there is no per-round NAK — sending one
+		// would confuse the client into thinking the final ACK/NAK
+		// (and the start of pack data) has arrived.
+		if multiAck && !multiAckDetailed && lastAck == "" {
 			if err := writer.WriteString("NAK\n"); err != nil {
 				return fmt.Errorf("writing NAK: %w", err)
 			}
 		}
 	}
 
-	// Try to read the flush after "done". The client may or may not send
-	// one, and the body may already be closed (especially behind proxies).
+	// Drain any remaining trailing flush after "done" so the request body
+	// is fully consumed.
 	if _, err := reader.ReadString(); err != nil && err != io.EOF {
-		// Ignore read errors on closed body — the client is done sending.
+		// Ignore — body may be closed.
 	}
 
-	// After "done", send a final ACK for the last common object (or NAK
-	// if there are no common objects, e.g. initial clone).
+	// Stateless-RPC semantics: when the client ends the request without
+	// "done", this is a negotiation round, not the final fetch. Reply
+	// with NAK only (no pack data) so the client can send another round
+	// with more haves. Emitting pack data here would corrupt the
+	// keep-alive connection for the next round.
+	if !gotDone {
+		return writer.WriteString("NAK\n")
+	}
+
+	// Final response after "done": ACK <last common> or NAK, then pack.
 	if len(common) > 0 {
 		if err := writer.WriteString(fmt.Sprintf("ACK %s\n", common[len(common)-1])); err != nil {
 			return fmt.Errorf("writing final ACK: %w", err)
