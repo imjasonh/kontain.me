@@ -1,21 +1,21 @@
 locals {
   apps = {
     "apko" : {
-      cpu                   = 1
-      ram                   = "1Gi"
+      cpu                   = 4
+      ram                   = "2Gi"
       container_concurrency = 1
       timeout_seconds       = 900 # 15m
     }
     "flatten" : {
-      cpu                   = 1
-      ram                   = "1Gi"
+      cpu                   = 4
+      ram                   = "2Gi"
       container_concurrency = 80
-      timeout_seconds       = 120 # 2m
+      timeout_seconds       = 900 # 15m
     }
     "git" : {
-      cpu                   = 1
+      cpu                   = 4
       ram                   = "2Gi"
-      container_concurrency = 5
+      container_concurrency = 80
       timeout_seconds       = 900 # 15m
     }
     "ko" : {
@@ -26,9 +26,9 @@ locals {
       base_image            = "cgr.dev/chainguard/go:latest-dev"
     }
     "mirror" : {
-      cpu                   = 2
+      cpu                   = 4
       ram                   = "4Gi"
-      container_concurrency = 1
+      container_concurrency = 80
       timeout_seconds       = 900 # 15m
     }
     "random" : {
@@ -51,14 +51,14 @@ locals {
     #   timeout_seconds       = 60 # 1m
     # }
     "infinite-git" : {
-      cpu                   = 1
-      ram                   = "1Gi"
+      cpu                   = 4
+      ram                   = "2Gi"
       container_concurrency = 1000
       timeout_seconds       = 60 # 1m
     }
     "infinite-go" : {
-      cpu                   = 1
-      ram                   = "1Gi"
+      cpu                   = 4
+      ram                   = "2Gi"
       container_concurrency = 1000
       timeout_seconds       = 60 # 1m
     }
