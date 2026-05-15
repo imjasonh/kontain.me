@@ -13,7 +13,6 @@ require (
 	github.com/google/go-containerregistry v0.21.5
 	github.com/google/ko v0.18.1
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
-	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/tmc/dot v0.2.0
 	golang.org/x/mod v0.36.0
@@ -108,6 +107,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jedisct1/go-minisign v0.0.0-20241212093149-d2f9f49435c7 // indirect
+	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/kevinburke/ssh_config v1.6.0 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect

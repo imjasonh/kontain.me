@@ -9,16 +9,14 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/validate"
-	"github.com/kelseyhightower/envconfig"
+	"github.com/sethvargo/go-envconfig"
 )
 
+var env = envconfig.MustProcess(context.Background(), &struct {
+	Ref string `env:"REF"`
+}{})
+
 func main() {
-	var env struct {
-		Ref string `env:"REF"`
-	}
-	if err := envconfig.Process("", &env); err != nil {
-		log.Fatal(err)
-	}
 	ref, err := name.ParseReference(env.Ref)
 	if err != nil {
 		log.Fatal(err)
