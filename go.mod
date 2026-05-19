@@ -9,7 +9,7 @@ require (
 	github.com/chainguard-dev/terraform-infra-common v1.0.7
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-git/go-billy/v5 v5.9.0
-	github.com/go-git/go-git/v5 v5.19.0
+	github.com/go-git/go-git/v5 v5.19.1
 	github.com/google/go-containerregistry v0.21.5
 	github.com/google/ko v0.18.1
 	github.com/imjasonh/delay v0.0.0-20210102151318-8339250e8458
