@@ -17,7 +17,7 @@ jobs:
         with:
           go-version-file: 'go.mod'
       - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-      - uses: imjasonh/setup-crane@6da1ae018866400525525ce74ff892880c099987 # v0.5
+      - uses: imjasonh/setup-crane@59c71e96a00b28651f10369ba3359a6d730740a0 # v0.6
       - run: |
           go build ./...
           terraform fmt -check -recursive
