@@ -1,20 +1,40 @@
+# What the deploy stack in the repository root calls:
+#
+#   artifactregistry.writer     ko pushes to gcr.io/kontaindotme
+#   dns.admin                   the kontain.me zone and its records
+#   iam.serviceAccountViewer    read the runtime accounts below
+#   monitoring.dashboardEditor  a dashboard per service
+#   run.admin                   services, their IAM policy, domain mappings
+#   serviceUsageConsumer        call APIs; it can't turn any on
+#   storage.admin               the image bucket, its IAM, and Terraform state
+#
+# The deploy account can't create service accounts or set IAM policy on any
+# of them. This stack creates the accounts Cloud Run runs as and grants act-as
+# on each one. iam.googleapis.com doesn't support resource conditions, so a
+# project-level serviceAccountUser grant would cover every account, including
+# the Compute Engine default account.
+#
+# Never grant a CI account editor, owner, iam.serviceAccountAdmin,
+# iam.serviceAccountTokenCreator, iam.roleAdmin, projectIamAdmin without a
+# modifiedGrantsByRole condition, or any role with iam.serviceAccountKeys.create.
+
 locals {
   github_deploy_roles = [
     "roles/artifactregistry.writer",
     "roles/dns.admin",
-    "roles/iam.serviceAccountAdmin",
+    "roles/iam.serviceAccountViewer",
     "roles/monitoring.dashboardEditor",
-    "roles/monitoring.editor",
     "roles/run.admin",
-    "roles/servicemanagement.admin",
-    "roles/serviceusage.serviceUsageAdmin",
+    "roles/serviceusage.serviceUsageConsumer",
     "roles/storage.admin",
   ]
 
-  # Service accounts that Cloud Run services in the deploy stack run as.
-  cloud_run_runtime_accounts = [
-    "kontaindotme@${local.project_id}.iam.gserviceaccount.com",
-  ]
+  # Accounts that the deploy stack's Cloud Run services run as, and their
+  # display names. The deploy stack reads them with data sources.
+  runtime_accounts = {
+    "kontaindotme" = ""
+    "no-auth"      = "Prober SA with no permissions"
+  }
 }
 
 resource "google_service_account" "gha_deployer" {
@@ -45,10 +65,18 @@ resource "google_project_iam_member" "gha_deployer" {
   member  = google_service_account.gha_deployer.member
 }
 
-resource "google_service_account_iam_member" "gha_deployer_act_as" {
-  for_each = toset(local.cloud_run_runtime_accounts)
+resource "google_service_account" "runtime" {
+  for_each = local.runtime_accounts
 
-  service_account_id = "projects/${local.project_id}/serviceAccounts/${each.value}"
+  project      = local.project_id
+  account_id   = each.key
+  display_name = each.value
+}
+
+resource "google_service_account_iam_member" "gha_deployer_act_as" {
+  for_each = local.runtime_accounts
+
+  service_account_id = google_service_account.runtime[each.key].name
   role               = "roles/iam.serviceAccountUser"
   member             = google_service_account.gha_deployer.member
 }
