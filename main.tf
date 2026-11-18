@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.7.0"
+
   backend "gcs" {
     bucket = "kontaindotme-tfstate"
     prefix = "terraform/state"
@@ -79,28 +81,42 @@ resource "google_storage_bucket_iam_member" "public-read" {
   member = "allUsers"
 }
 
-resource "google_service_account" "service_account" {
+// Created by bootstrap/, which also lets the deploy account act as it.
+data "google_service_account" "service_account" {
   account_id = "kontaindotme"
+}
+
+removed {
+  from = google_service_account.service_account
+  lifecycle {
+    destroy = false
+  }
 }
 
 resource "google_storage_bucket_iam_member" "bucket-member" {
   bucket = google_storage_bucket.bucket.name
   role   = "roles/storage.admin"
-  member = "serviceAccount:${google_service_account.service_account.email}"
+  member = "serviceAccount:${data.google_service_account.service_account.email}"
 }
 
 resource "google_dns_managed_zone" "zone" {
   name     = "kontainme-zone"
   dns_name = "${var.domain}."
-
-  depends_on = [google_project_service.dns-api]
 }
 
-// Enable Cloud DNS API.
-resource "google_project_service" "dns-api" {
-  project            = var.project_id
-  service            = "dns.googleapis.com"
-  disable_on_destroy = false
+// The DNS and Cloud Run APIs are turned on in bootstrap/.
+removed {
+  from = google_project_service.dns-api
+  lifecycle {
+    destroy = false
+  }
+}
+
+removed {
+  from = google_project_service.run-api
+  lifecycle {
+    destroy = false
+  }
 }
 
 // Redirect kontain.me to github.com/imjasonh/kontain.me
@@ -133,11 +149,4 @@ resource "google_dns_record_set" "root-aaaa-record" {
     "2001:4860:4802:36::15",
     "2001:4860:4802:38::15",
   ]
-}
-
-// Enable Cloud Run API.
-resource "google_project_service" "run-api" {
-  project            = var.project_id
-  service            = "run.googleapis.com"
-  disable_on_destroy = false
 }

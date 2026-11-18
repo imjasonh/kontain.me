@@ -1,6 +1,13 @@
-resource "google_service_account" "no-auth" {
-  account_id   = "no-auth"
-  display_name = "Prober SA with no permissions"
+// Created by bootstrap/, which also lets the deploy account act as it.
+data "google_service_account" "no-auth" {
+  account_id = "no-auth"
+}
+
+removed {
+  from = google_service_account.no-auth
+  lifecycle {
+    destroy = false
+  }
 }
 
 /*
@@ -11,7 +18,7 @@ module "prober" {
 
   name            = "random-prober"
   project_id      = var.project_id
-  service_account = google_service_account.no-auth.email
+  service_account = data.google_service_account.no-auth.email
 
   importpath  = "github.com/imjasonh/kontain.me/cmd/prober"
   working_dir = path.module

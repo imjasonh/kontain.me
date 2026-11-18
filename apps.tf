@@ -80,7 +80,7 @@ resource "google_cloud_run_service" "service" {
 
   template {
     spec {
-      service_account_name  = google_service_account.service_account.email
+      service_account_name  = data.google_service_account.service_account.email
       container_concurrency = each.value.container_concurrency
       timeout_seconds       = each.value.timeout_seconds
       containers {
