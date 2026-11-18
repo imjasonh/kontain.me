@@ -43,3 +43,32 @@ jobs:
         terraform init
         terraform plan -input=false -lock=false -out=plan.tmp
         terraform apply -auto-approve -input=false plan.tmp
+
+  # A separate job, so issues: write never shares a job with the GCP credentials.
+  report:
+    name: Report
+    needs: deploy
+    if: always() && github.ref == 'refs/heads/main' && (needs.deploy.result == 'failure' || needs.deploy.result == 'success')
+    runs-on: ['ubuntu-latest']
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RESULT: ${{ needs.deploy.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      TITLE: Deploy is failing
+    steps:
+    - name: Open, update, or close the failure issue
+      run: |
+        number=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number,title \
+          --jq "map(select(.title == \"$TITLE\")) | .[0].number // empty")
+        if [ "$RESULT" = failure ]; then
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "Still failing: $RUN_URL"
+          else
+            gh issue create --title "$TITLE" --body "The deploy workflow failed on main: $RUN_URL"
+          fi
+        elif [ -n "$number" ]; then
+          gh issue close "$number" --comment "Deploy succeeded: $RUN_URL"
+        fi
